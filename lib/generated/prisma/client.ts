@@ -6,7 +6,7 @@
 /*
  * This file should be your main import to use Prisma. Through it you get access to all the models, enums, and input types.
  * If you're looking for something you can import in the client-side of your application, please refer to the `browser.ts` file instead.
- * 
+ *
  * 🟢 You can import this file directly.
  */
 
@@ -15,7 +15,7 @@ import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 globalThis['__dirname'] = path.dirname(fileURLToPath(import.meta.url))
 
-import * as runtime from "@prisma/client/runtime/library"
+import * as runtime from "@prisma/client/runtime/client"
 import * as $Enums from "./enums"
 import * as $Class from "./internal/class"
 import * as Prisma from "./internal/prismaNamespace"
@@ -30,46 +30,37 @@ export * from "./enums"
  * ```
  * const prisma = new PrismaClient()
  * // Fetch zero or more Companies
- * const companies = await prisma.company.findMany()
+ * const companies = await prisma.companies.findMany()
  * ```
  * 
- * Read more in our [docs](https://www.prisma.io/docs/reference/tools-and-interfaces/prisma-client).
+ * Read more in our [docs](https://pris.ly/d/client).
  */
-export const PrismaClient = $Class.getPrismaClientClass(__dirname)
+export const PrismaClient = $Class.getPrismaClientClass()
 export type PrismaClient<LogOpts extends Prisma.LogLevel = never, OmitOpts extends Prisma.PrismaClientOptions["omit"] = Prisma.PrismaClientOptions["omit"], ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = $Class.PrismaClient<LogOpts, OmitOpts, ExtArgs>
 export { Prisma }
 
-
-// file annotations for bundling tools to include these files
-path.join(__dirname, "libquery_engine-darwin-arm64.dylib.node")
-path.join(process.cwd(), "lib/generated/prisma/libquery_engine-darwin-arm64.dylib.node")
-
-// file annotations for bundling tools to include these files
-path.join(__dirname, "libquery_engine-rhel-openssl-3.0.x.so.node")
-path.join(process.cwd(), "lib/generated/prisma/libquery_engine-rhel-openssl-3.0.x.so.node")
-
 /**
- * Model Company
+ * Model companies
  * 
  */
-export type Company = Prisma.CompanyModel
+export type companies = Prisma.companiesModel
 /**
- * Model User
+ * Model files
  * 
  */
-export type User = Prisma.UserModel
+export type files = Prisma.filesModel
 /**
- * Model Folder
+ * Model folders
  * 
  */
-export type Folder = Prisma.FolderModel
+export type folders = Prisma.foldersModel
 /**
- * Model File
+ * Model payments
  * 
  */
-export type File = Prisma.FileModel
+export type payments = Prisma.paymentsModel
 /**
- * Model Payment
+ * Model users
  * 
  */
-export type Payment = Prisma.PaymentModel
+export type users = Prisma.usersModel

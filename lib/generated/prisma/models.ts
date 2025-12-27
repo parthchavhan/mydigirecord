@@ -8,9 +8,9 @@
  *
  * 🟢 You can import this file directly.
  */
-export type * from './models/Company'
-export type * from './models/User'
-export type * from './models/Folder'
-export type * from './models/File'
-export type * from './models/Payment'
+export type * from './models/companies'
+export type * from './models/files'
+export type * from './models/folders'
+export type * from './models/payments'
+export type * from './models/users'
 export type * from './commonInputTypes'
