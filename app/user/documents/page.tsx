@@ -8,11 +8,12 @@ import { logout, getAuth } from '@/app/actions/auth';
 import { getCompany } from '@/app/actions/company';
 import { getFolderWithChildren } from '@/app/actions/dashboard';
 import { createFolder, deleteFolder, updateFolder, getFolderStats, getFoldersByCompany } from '@/app/actions/folder';
-import { deleteFile, updateFile, getFilesByCompany, copyFile } from '@/app/actions/file';
+import { deleteFile, updateFile, getFilesByCompany, copyFile, getFileById } from '@/app/actions/file';
 import toast from 'react-hot-toast';
 import AddFileModal from './components/AddFileModal';
 import { createFile } from '@/app/actions/file';
 import DocumentViewerModal from '../../admin/dashboard/modals/DocumentViewerModal';
+import EditFileDetailsModal from './components/EditFileDetailsModal';
 
 interface BreadcrumbItem {
   id: string;
@@ -45,6 +46,9 @@ export default function DocumentsPage() {
   const [copiedFile, setCopiedFile] = useState<any | null>(null);
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [availableFolders, setAvailableFolders] = useState<any[]>([]);
+  const [showEditDetailsModal, setShowEditDetailsModal] = useState(false);
+  const [editingFileDetails, setEditingFileDetails] = useState<any | null>(null);
+  const [fileDetails, setFileDetails] = useState<any | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -282,6 +286,14 @@ export default function DocumentsPage() {
       if (stats.success) {
         setFolderStats(stats.stats);
       }
+    } else {
+      // Fetch full file details for files
+      const result = await getFileById(item.id);
+      if (result.success && result.file) {
+        setFileDetails(result.file);
+      } else {
+        setFileDetails(null);
+      }
     }
   };
 
@@ -292,11 +304,20 @@ export default function DocumentsPage() {
     }
   };
 
-  const handleEditFile = (file: any) => {
+  const handleEditFile = async (file: any) => {
     if (!('other_folders' in file || 'parentId' in file)) {
-      handleEditItem(file);
+      // Fetch full file details
+      const result = await getFileById(file.id);
+      if (result.success && result.file) {
+        setEditingFileDetails(result.file);
+        setShowEditDetailsModal(true);
+        setOpenMenuId(null);
+      } else {
+        toast.error(result.error || 'Failed to load file details');
+      }
     }
   };
+
 
   const handleCopyFile = (file: any) => {
     if (!('other_folders' in file || 'parentId' in file)) {
@@ -561,7 +582,7 @@ export default function DocumentsPage() {
                                     className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                                   >
                                     <Edit className="w-4 h-4" />
-                                    <span>Edit</span>
+                                    <span>Edit Details</span>
                                   </button>
                                   <button
                                     onClick={(e) => {
@@ -750,6 +771,7 @@ export default function DocumentsPage() {
               setShowInfoModal(false);
               setInfoItem(null);
               setFolderStats(null);
+              setFileDetails(null);
             }}
           >
             <div
@@ -763,6 +785,7 @@ export default function DocumentsPage() {
                     setShowInfoModal(false);
                     setInfoItem(null);
                     setFolderStats(null);
+                    setFileDetails(null);
                   }}
                   className="text-gray-400 hover:text-gray-600"
                 >
@@ -805,11 +828,79 @@ export default function DocumentsPage() {
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <p className="text-sm text-gray-600 mb-2">File Details</p>
-                    <p className="text-sm text-gray-700">
-                      This is a file. Files cannot contain other items.
-                    </p>
+                  <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+                    <p className="text-sm font-semibold text-gray-900 mb-3">File Information</p>
+                    {fileDetails ? (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>
+                            <p className="text-gray-600">Size:</p>
+                            <p className="font-medium text-gray-900">
+                              {(fileDetails.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-gray-600">Type:</p>
+                            <p className="font-medium text-gray-900">
+                              {fileDetails.mimeType || 'Unknown'}
+                            </p>
+                          </div>
+                          {fileDetails.category && (
+                            <div>
+                              <p className="text-gray-600">Category:</p>
+                              <p className="font-medium text-gray-900">{fileDetails.category}</p>
+                            </div>
+                          )}
+                          <div>
+                            <p className="text-gray-600">Created:</p>
+                            <p className="font-medium text-gray-900">
+                              {new Date(fileDetails.createdAt).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        {(fileDetails.issueDate || fileDetails.expiryDate || fileDetails.renewalDate || fileDetails.placeOfIssue) && (
+                          <div className="pt-3 border-t border-gray-200">
+                            <p className="text-sm font-semibold text-gray-900 mb-2">Document Dates</p>
+                            <div className="grid grid-cols-2 gap-2 text-sm">
+                              {fileDetails.issueDate && (
+                                <div>
+                                  <p className="text-gray-600">Issue Date:</p>
+                                  <p className="font-medium text-gray-900">
+                                    {new Date(fileDetails.issueDate).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              )}
+                              {fileDetails.expiryDate && (
+                                <div>
+                                  <p className="text-gray-600">Expiry Date:</p>
+                                  <p className="font-medium text-red-600">
+                                    {new Date(fileDetails.expiryDate).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              )}
+                              {fileDetails.renewalDate && (
+                                <div>
+                                  <p className="text-gray-600">Renewal Date:</p>
+                                  <p className="font-medium text-gray-900">
+                                    {new Date(fileDetails.renewalDate).toLocaleDateString()}
+                                  </p>
+                                </div>
+                              )}
+                              {fileDetails.placeOfIssue && (
+                                <div>
+                                  <p className="text-gray-600">Place of Issue:</p>
+                                  <p className="font-medium text-gray-900">{fileDetails.placeOfIssue}</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-600">
+                        <p>Loading file details...</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -821,6 +912,20 @@ export default function DocumentsPage() {
           isOpen={viewingFile !== null}
           onClose={() => setViewingFile(null)}
           file={viewingFile}
+        />
+
+        {/* Edit File Details Modal */}
+        <EditFileDetailsModal
+          isOpen={showEditDetailsModal}
+          onClose={() => {
+            setShowEditDetailsModal(false);
+            setEditingFileDetails(null);
+          }}
+          file={editingFileDetails}
+          onSuccess={() => {
+            toast.success('File details updated successfully!');
+            refreshView();
+          }}
         />
     </div>
   );

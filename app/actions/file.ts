@@ -294,6 +294,11 @@ export async function updateFileDetails(
 
 export async function getFileById(id: string) {
   try {
+    const auth = await getAuth();
+    if (!auth) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
     const file = await prisma.files.findUnique({
       where: { id },
       include: {
@@ -305,15 +310,41 @@ export async function getFileById(id: string) {
         users: true,
       },
     });
+    
     if (!file) {
       return { success: false, error: 'File not found' };
     }
-    // Map plural relation names to singular for compatibility
+
+    // Check authorization - users can only access files from their company
+    if (auth.role === 'user' && auth.companyId) {
+      const fileCompanyId = file.folders.companyId;
+      if (!fileCompanyId || fileCompanyId !== auth.companyId) {
+        return { success: false, error: 'Unauthorized - File not accessible' };
+      }
+    }
+
+    // Map plural relation names to singular for compatibility and return all file information
     const mappedFile = {
-      ...file,
+      id: file.id,
+      name: file.name,
+      folderId: file.folderId,
+      userId: file.userId,
+      size: file.size,
+      url: file.url,
+      key: file.key,
+      mimeType: file.mimeType,
+      category: file.category,
+      issueDate: file.issueDate,
+      expiryDate: file.expiryDate,
+      renewalDate: file.renewalDate,
+      placeOfIssue: file.placeOfIssue,
+      createdAt: file.createdAt,
+      updatedAt: file.updatedAt,
+      deletedAt: file.deletedAt,
       folder: file.folders,
       user: file.users,
     };
+    
     return { success: true, file: mappedFile };
   } catch (error) {
     console.error('Error fetching file:', error);
