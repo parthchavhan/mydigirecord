@@ -76,10 +76,10 @@ export default function DocumentCategoryChart({ data }: DocumentCategoryChartPro
             </Pie>
             <Tooltip content={<CustomTooltip />} />
             <Legend
-              verticalAlign="middle"
-              align="right"
+              verticalAlign="bottom"
+              align="center"
               iconType="square"
-              wrapperStyle={{ paddingLeft: '20px' }}
+              wrapperStyle={{ paddingTop: '20px' }}
               formatter={(value: string) => (
                 <span className="text-sm text-gray-700">{value}</span>
               )}

@@ -46,7 +46,7 @@ export default function DocumentCategoryChart({ data }: DocumentCategoryChartPro
   return (
     <div className="bg-white rounded-lg shadow p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-6">No. of Documents</h3>
-      <div className="flex items-center justify-center">
+      <div className="flex items-center justify-center min-h-[400px]">
         <ResponsiveContainer width="100%" height={400}>
           <PieChart>
             <Pie
@@ -65,10 +65,10 @@ export default function DocumentCategoryChart({ data }: DocumentCategoryChartPro
             </Pie>
             <Tooltip content={<CustomTooltip />} />
             <Legend
-              verticalAlign="middle"
-              align="right"
+              verticalAlign="bottom"
+              align="center"
               iconType="square"
-              wrapperStyle={{ paddingLeft: '20px' }}
+              wrapperStyle={{ paddingTop: '20px' }}
               formatter={(value: string) => (
                 <span className="text-sm text-gray-700">{value}</span>
               )}
