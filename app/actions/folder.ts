@@ -10,15 +10,17 @@ export async function createFolder(name: string, companyId: string, parentId: st
     const auth = await getAuth();
     // Set userId to null for admin users since they don't have a User record in the database
     const userId = auth?.role === 'admin' || auth?.userId === 'admin' ? null : (auth?.userId || null);
-    const folder = await prisma.folder.create({
+    const folder = await prisma.folders.create({
       data: {
+        id: crypto.randomUUID(),
         name,
         companyId,
         parentId,
         userId,
+        updatedAt: new Date(),
       },
       include: {
-        children: true,
+        other_folders: true,
         files: true,
       },
     });
@@ -33,17 +35,17 @@ export async function createFolder(name: string, companyId: string, parentId: st
 
 export async function getFolderById(id: string) {
   try {
-    const folder = await prisma.folder.findUnique({
+    const folder = await prisma.folders.findUnique({
       where: { id },
       include: {
-        children: {
+        other_folders: {
           include: {
-            children: true,
+            other_folders: true,
             files: true,
           },
         },
         files: true,
-        parent: true,
+        folders: true,
       },
     });
     return { success: true, folder };
@@ -55,13 +57,13 @@ export async function getFolderById(id: string) {
 
 export async function getFoldersByCompany(companyId: string, parentId: string | null = null) {
   try {
-    const folders = await prisma.folder.findMany({
+    const folders = await prisma.folders.findMany({
       where: {
         companyId,
         parentId,
       },
       include: {
-        children: true,
+        other_folders: true,
         files: true,
       },
       orderBy: {
@@ -79,19 +81,19 @@ export async function getFoldersByCompany(companyId: string, parentId: string | 
 
 export async function getFolderTree(companyId: string, folderId: string) {
   try {
-    const folder = await prisma.folder.findUnique({
+    const folder = await prisma.folders.findUnique({
       where: { id: folderId },
       include: {
-        children: {
+        other_folders: {
           include: {
-            children: true,
+            other_folders: true,
             files: true,
           },
         },
         files: true,
-        parent: {
+        folders: {
           include: {
-            parent: true,
+            folders: true,
           },
         },
       },
@@ -112,13 +114,13 @@ export async function deleteFolder(id: string) {
   try {
     // First, get all files in this folder and nested folders before deletion
     const getAllFilesInFolder = async (folderId: string): Promise<string[]> => {
-      const folder = await prisma.folder.findUnique({
+      const folder = await prisma.folders.findUnique({
         where: { id: folderId },
         include: {
           files: {
             select: { key: true },
           },
-          children: {
+          other_folders: {
             select: { id: true },
           },
         },
@@ -131,7 +133,7 @@ export async function deleteFolder(id: string) {
         .filter((key: string | null): key is string => key !== null);
 
       // Recursively get files from child folders
-      for (const child of folder.children) {
+      for (const child of folder.other_folders) {
         const childFiles = await getAllFilesInFolder(child.id);
         fileKeys = [...fileKeys, ...childFiles];
       }
@@ -160,7 +162,7 @@ export async function deleteFolder(id: string) {
     }
 
     // Delete folder (this will cascade delete files from database)
-    await prisma.folder.delete({
+    await prisma.folders.delete({
       where: { id },
     });
     revalidatePath('/admin/dashboard');
@@ -174,9 +176,9 @@ export async function deleteFolder(id: string) {
 
 export async function updateFolder(id: string, name: string) {
   try {
-    const folder = await prisma.folder.update({
+    const folder = await prisma.folders.update({
       where: { id },
-      data: { name },
+      data: { name, updatedAt: new Date() },
     });
     revalidatePath('/admin/dashboard');
     revalidatePath('/user/dashboard');
@@ -189,12 +191,12 @@ export async function updateFolder(id: string, name: string) {
 
 export async function getFolderStats(folderId: string) {
   try {
-    const folder = await prisma.folder.findUnique({
+    const folder = await prisma.folders.findUnique({
       where: { id: folderId },
       include: {
         _count: {
           select: {
-            children: true,
+            other_folders: true,
             files: true,
           },
         },
@@ -207,16 +209,16 @@ export async function getFolderStats(folderId: string) {
 
     // Recursively count all nested folders and files
     const countRecursive = async (fId: string): Promise<{ folders: number; files: number }> => {
-      const f = await prisma.folder.findUnique({
+      const f = await prisma.folders.findUnique({
         where: { id: fId },
         include: {
           _count: {
             select: {
-              children: true,
+              other_folders: true,
               files: true,
             },
           },
-          children: {
+          other_folders: {
             select: { id: true },
           },
         },
@@ -224,10 +226,10 @@ export async function getFolderStats(folderId: string) {
 
       if (!f) return { folders: 0, files: 0 };
 
-      let totalFolders = f._count.children;
+      let totalFolders = f._count.other_folders;
       let totalFiles = f._count.files;
 
-      for (const child of f.children) {
+      for (const child of f.other_folders) {
         const childCounts = await countRecursive(child.id);
         totalFolders += childCounts.folders + 1; // +1 for the child folder itself
         totalFiles += childCounts.files;
@@ -243,7 +245,7 @@ export async function getFolderStats(folderId: string) {
       stats: {
         folderCount: counts.folders,
         fileCount: counts.files,
-        directFolderCount: folder._count.children,
+        directFolderCount: folder._count.other_folders,
         directFileCount: folder._count.files,
       },
     };

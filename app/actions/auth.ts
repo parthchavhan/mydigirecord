@@ -12,7 +12,7 @@ export async function adminLogin(email: string, password: string) {
       role: 'admin',
     });
 
-    cookies().set('auth-token', token, {
+    (await cookies()).set('auth-token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -27,7 +27,7 @@ export async function adminLogin(email: string, password: string) {
 
 export async function userLogin(email: string, password: string, companyId: string) {
   try {
-    const company = await prisma.company.findUnique({
+    const company = await prisma.companies.findUnique({
       where: { id: companyId },
     });
 
@@ -35,7 +35,7 @@ export async function userLogin(email: string, password: string, companyId: stri
       return { success: false, error: 'Company not found' };
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: {
         email_companyId: {
           email,
@@ -54,7 +54,7 @@ export async function userLogin(email: string, password: string, companyId: stri
       companyId,
     });
 
-    cookies().set('auth-token', token, {
+    (await cookies()).set('auth-token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -69,12 +69,12 @@ export async function userLogin(email: string, password: string, companyId: stri
 }
 
 export async function logout() {
-  cookies().delete('auth-token');
+  (await cookies()).delete('auth-token');
   redirect('/');
 }
 
 export async function getAuth() {
-  const token = cookies().get('auth-token')?.value;
+  const token = (await cookies()).get('auth-token')?.value;
   if (!token) {
     return null;
   }

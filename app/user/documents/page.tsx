@@ -94,9 +94,9 @@ export default function DocumentsPage() {
     }
 
     if (filterType === 'folders') {
-      filtered = filtered.filter((item) => 'children' in item || 'parentId' in item);
+      filtered = filtered.filter((item) => 'other_folders' in item || 'parentId' in item);
     } else if (filterType === 'files') {
-      filtered = filtered.filter((item) => !('children' in item) && !('parentId' in item));
+      filtered = filtered.filter((item) => !('other_folders' in item) && !('parentId' in item));
     }
 
     setFilteredItems(filtered);
@@ -116,7 +116,7 @@ export default function DocumentsPage() {
     setCurrentPath(newPath);
     
     const items: any[] = [
-      ...(folder.children || []),
+      ...(folder.other_folders || []),
       ...(folder.files || []),
     ];
     setCurrentItems(items);
@@ -145,7 +145,7 @@ export default function DocumentsPage() {
       if (result.success && result.folder) {
         const folder = result.folder;
         const items: any[] = [
-          ...(folder.children || []),
+          ...(folder.other_folders || []),
           ...(folder.files || []),
         ];
         setCurrentItems(items);
@@ -171,7 +171,7 @@ export default function DocumentsPage() {
       if (result.success && result.folder) {
         const folder = result.folder;
         const items: any[] = [
-          ...(folder.children || []),
+          ...(folder.other_folders || []),
           ...(folder.files || []),
         ];
         setCurrentItems(items);
@@ -255,7 +255,7 @@ export default function DocumentsPage() {
     e.preventDefault();
     if (!editingItem || !editName.trim()) return;
 
-    const isFolder = 'children' in editingItem || 'parentId' in editingItem;
+    const isFolder = 'other_folders' in editingItem || 'parentId' in editingItem;
     const result = isFolder
       ? await updateFolder(editingItem.id, editName)
       : await updateFile(editingItem.id, editName);
@@ -276,7 +276,7 @@ export default function DocumentsPage() {
     setShowInfoModal(true);
     setOpenMenuId(null);
 
-    const isFolder = 'children' in item || 'parentId' in item;
+    const isFolder = 'other_folders' in item || 'parentId' in item;
     if (isFolder) {
       const stats = await getFolderStats(item.id);
       if (stats.success) {
@@ -286,20 +286,20 @@ export default function DocumentsPage() {
   };
 
   const handleViewFile = (file: any) => {
-    if (!('children' in file || 'parentId' in file)) {
+    if (!('other_folders' in file || 'parentId' in file)) {
       setViewingFile(file);
       setOpenMenuId(null);
     }
   };
 
   const handleEditFile = (file: any) => {
-    if (!('children' in file || 'parentId' in file)) {
+    if (!('other_folders' in file || 'parentId' in file)) {
       handleEditItem(file);
     }
   };
 
   const handleCopyFile = (file: any) => {
-    if (!('children' in file || 'parentId' in file)) {
+    if (!('other_folders' in file || 'parentId' in file)) {
       setCopiedFile(file);
       toast.success('File copied! Click Paste to duplicate it in another folder.');
       setOpenMenuId(null);
@@ -492,7 +492,7 @@ export default function DocumentsPage() {
           ) : (
             <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
               {filteredItems.map((item) => {
-                const isFolder = 'children' in item || 'parentId' in item;
+                const isFolder = 'other_folders' in item || 'parentId' in item;
                 return (
                     <div
                       key={item.id}
@@ -690,7 +690,7 @@ export default function DocumentsPage() {
             >
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xl font-semibold text-gray-900">
-                  Edit {('children' in editingItem || 'parentId' in editingItem) ? 'Folder' : 'File'} Name
+                  Edit {('other_folders' in editingItem || 'parentId' in editingItem) ? 'Folder' : 'File'} Name
                 </h3>
                 <button
                   onClick={() => {
@@ -771,7 +771,7 @@ export default function DocumentsPage() {
               </div>
               <div className="space-y-4">
                 <div className="flex items-center space-x-3 pb-4 border-b">
-                  {('children' in infoItem || 'parentId' in infoItem) ? (
+                  {('other_folders' in infoItem || 'parentId' in infoItem) ? (
                     <Folder className="w-8 h-8 text-[#9f1d35]" />
                   ) : (
                     <File className="w-8 h-8 text-gray-600" />
@@ -783,7 +783,7 @@ export default function DocumentsPage() {
                     </p>
                   </div>
                 </div>
-                {('children' in infoItem || 'parentId' in infoItem) && folderStats ? (
+                {('other_folders' in infoItem || 'parentId' in infoItem) && folderStats ? (
                   <div className="space-y-3">
                     <div className="bg-gray-50 rounded-lg p-4">
                       <div className="grid grid-cols-2 gap-4">

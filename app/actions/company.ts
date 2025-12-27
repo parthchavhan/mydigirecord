@@ -12,7 +12,7 @@ export async function createCompany(name: string) {
     }
 
     // Check if company with same name already exists
-    const existingCompany = await prisma.company.findFirst({
+    const existingCompany = await prisma.companies.findFirst({
       where: {
         name: {
           equals: name.trim(),
@@ -25,9 +25,11 @@ export async function createCompany(name: string) {
       return { success: false, error: 'A company with this name already exists' };
     }
 
-    const company = await prisma.company.create({
+    const company = await prisma.companies.create({
       data: {
+        id: crypto.randomUUID(),
         name: name.trim(),
+        updatedAt: new Date(),
       },
     });
     
@@ -51,7 +53,7 @@ export async function createCompany(name: string) {
 
 export async function getCompanies() {
   try {
-    const companies = await prisma.company.findMany({
+    const companies = await prisma.companies.findMany({
       include: {
         folders: {
           where: {
@@ -78,7 +80,7 @@ export async function getCompanies() {
 
 export async function getCompany(id: string) {
   try {
-    const company = await prisma.company.findUnique({
+    const company = await prisma.companies.findUnique({
       where: { id },
       include: {
         folders: {
@@ -86,7 +88,7 @@ export async function getCompany(id: string) {
             parentId: null,
           },
           include: {
-            children: true,
+            other_folders: true,
             files: {
               where: {
                 deletedAt: null,
@@ -107,7 +109,7 @@ export async function deleteCompany(id: string) {
   try {
     // Get all files in all folders of this company before deletion
     const getAllFilesInCompany = async (companyId: string): Promise<string[]> => {
-      const folders = await prisma.folder.findMany({
+      const folders = await prisma.folders.findMany({
         where: { companyId },
         include: {
           files: {
@@ -120,13 +122,13 @@ export async function deleteCompany(id: string) {
       
       // Recursively get all files from all folders
       const getFilesFromFolder = async (folderId: string): Promise<string[]> => {
-        const folder = await prisma.folder.findUnique({
+        const folder = await prisma.folders.findUnique({
           where: { id: folderId },
           include: {
             files: {
               select: { key: true },
             },
-            children: {
+            other_folders: {
               select: { id: true },
             },
           },
@@ -139,7 +141,7 @@ export async function deleteCompany(id: string) {
           .filter((key: string | null): key is string => key !== null);
 
         // Recursively get files from child folders
-        for (const child of folder.children) {
+        for (const child of folder.other_folders) {
           const childFiles = await getFilesFromFolder(child.id);
           keys = [...keys, ...childFiles];
         }
@@ -176,7 +178,7 @@ export async function deleteCompany(id: string) {
     }
 
     // Delete company (this will cascade delete folders and files from database)
-    await prisma.company.delete({
+    await prisma.companies.delete({
       where: { id },
     });
     revalidatePath('/admin/dashboard');

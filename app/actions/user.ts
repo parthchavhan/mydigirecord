@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache';
 
 export async function createUser(name: string, email: string, password: string, companyId: string) {
   try {
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.users.findUnique({
       where: {
         email_companyId: {
           email,
@@ -18,12 +18,14 @@ export async function createUser(name: string, email: string, password: string, 
       return { success: false, error: 'User with this email already exists in this company' };
     }
 
-    const user = await prisma.user.create({
+    const user = await prisma.users.create({
       data: {
+        id: crypto.randomUUID(),
         name,
         email,
         password,
         companyId,
+        updatedAt: new Date(),
       },
     });
     revalidatePath('/admin/dashboard');
@@ -36,7 +38,7 @@ export async function createUser(name: string, email: string, password: string, 
 
 export async function getUserByEmailAndCompany(email: string, companyId: string) {
   try {
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: {
         email_companyId: {
           email,
@@ -53,7 +55,7 @@ export async function getUserByEmailAndCompany(email: string, companyId: string)
 
 export async function getUsersByCompany(companyId: string) {
   try {
-    const users = await prisma.user.findMany({
+    const users = await prisma.users.findMany({
       where: { companyId },
       orderBy: {
         createdAt: 'desc',
@@ -68,10 +70,10 @@ export async function getUsersByCompany(companyId: string) {
 
 export async function getUserById(userId: string) {
   try {
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       include: {
-        company: true,
+        companies: true,
       },
     });
     return { success: true, user };
@@ -83,7 +85,7 @@ export async function getUserById(userId: string) {
 
 export async function updateUserPassword(userId: string, currentPassword: string, newPassword: string) {
   try {
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
     });
 
@@ -95,9 +97,9 @@ export async function updateUserPassword(userId: string, currentPassword: string
       return { success: false, error: 'Current password is incorrect' };
     }
 
-    await prisma.user.update({
+    await prisma.users.update({
       where: { id: userId },
-      data: { password: newPassword },
+      data: { password: newPassword, updatedAt: new Date() },
     });
 
     revalidatePath('/user/settings');
@@ -111,7 +113,7 @@ export async function updateUserPassword(userId: string, currentPassword: string
 export async function updateUserEmail(userId: string, newEmail: string, companyId: string) {
   try {
     // Check if email already exists in the company
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.users.findUnique({
       where: {
         email_companyId: {
           email: newEmail,
@@ -124,9 +126,9 @@ export async function updateUserEmail(userId: string, newEmail: string, companyI
       return { success: false, error: 'Email already exists in this company' };
     }
 
-    await prisma.user.update({
+    await prisma.users.update({
       where: { id: userId },
-      data: { email: newEmail },
+      data: { email: newEmail, updatedAt: new Date() },
     });
 
     revalidatePath('/user/settings');
@@ -139,9 +141,9 @@ export async function updateUserEmail(userId: string, newEmail: string, companyI
 
 export async function updateUserName(userId: string, newName: string) {
   try {
-    await prisma.user.update({
+    await prisma.users.update({
       where: { id: userId },
-      data: { name: newName },
+      data: { name: newName, updatedAt: new Date() },
     });
 
     revalidatePath('/user/settings');
@@ -154,7 +156,7 @@ export async function updateUserName(userId: string, newName: string) {
 
 export async function deleteUserAccount(userId: string) {
   try {
-    await prisma.user.delete({
+    await prisma.users.delete({
       where: { id: userId },
     });
 
@@ -168,15 +170,15 @@ export async function deleteUserAccount(userId: string) {
 
 export async function getUserStats(userId: string) {
   try {
-    const fileCount = await prisma.file.count({
+    const fileCount = await prisma.files.count({
       where: { userId },
     });
 
-    const folderCount = await prisma.folder.count({
+    const folderCount = await prisma.folders.count({
       where: { userId },
     });
 
-    const storageResult = await prisma.file.aggregate({
+    const storageResult = await prisma.files.aggregate({
       where: { userId },
       _sum: { size: true },
     });
@@ -205,7 +207,7 @@ export async function getUserStatsByCompany(companyId: string) {
       return { success: false, error: 'Unauthorized', userStats: [] };
     }
 
-    const users = await prisma.user.findMany({
+    const users = await prisma.users.findMany({
       where: { companyId },
       include: {
         _count: {
@@ -218,7 +220,7 @@ export async function getUserStatsByCompany(companyId: string) {
     });
 
     const userStatsPromises = users.map(async (user: { id: string; name: string; email: string; companyId: string; _count: { files: number; folders: number } }) => {
-      const storageResult = await prisma.file.aggregate({
+      const storageResult = await prisma.files.aggregate({
         where: { userId: user.id },
         _sum: { size: true },
       });
@@ -251,7 +253,7 @@ export async function getAllUserStats() {
       return { success: false, error: 'Unauthorized', userStats: [] };
     }
 
-    const users = await prisma.user.findMany({
+    const users = await prisma.users.findMany({
       include: {
         _count: {
           select: {
@@ -263,7 +265,7 @@ export async function getAllUserStats() {
     });
 
     const userStatsPromises = users.map(async (user: { id: string; name: string; email: string; companyId: string; _count: { files: number; folders: number } }) => {
-      const storageResult = await prisma.file.aggregate({
+      const storageResult = await prisma.files.aggregate({
         where: { userId: user.id },
         _sum: { size: true },
       });

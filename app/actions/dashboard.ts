@@ -10,7 +10,7 @@ export async function getUserDashboardData() {
       return { success: false, error: 'Unauthorized', data: null };
     }
 
-    const company = await prisma.company.findUnique({
+    const company = await prisma.companies.findUnique({
       where: { id: auth.companyId },
       include: {
         folders: {
@@ -18,9 +18,9 @@ export async function getUserDashboardData() {
             parentId: null,
           },
           include: {
-            children: {
+            other_folders: {
               include: {
-                children: true,
+                other_folders: true,
                 files: true,
               },
             },
@@ -43,15 +43,15 @@ export async function getUserDashboardData() {
 
 export async function getFolderWithChildren(folderId: string, companyId: string) {
   try {
-    const folder = await prisma.folder.findFirst({
+    const folder = await prisma.folders.findFirst({
       where: {
         id: folderId,
         companyId,
       },
       include: {
-        children: {
+        other_folders: {
           include: {
-            children: true,
+            other_folders: true,
             files: {
               where: {
                 deletedAt: null,
@@ -64,9 +64,9 @@ export async function getFolderWithChildren(folderId: string, companyId: string)
             deletedAt: null,
           },
         },
-        parent: {
+        folders: {
           include: {
-            parent: true,
+            folders: true,
           },
         },
       },

@@ -20,8 +20,9 @@ export async function createFile(
 ) {
   try {
     const auth = await getAuth();
-    const file = await prisma.file.create({
+    const file = await prisma.files.create({
       data: {
+        id: crypto.randomUUID(),
         name,
         folderId,
         userId: auth?.userId || null,
@@ -34,6 +35,7 @@ export async function createFile(
         expiryDate: expiryDate ? new Date(expiryDate) : null,
         renewalDate: renewalDate ? new Date(renewalDate) : null,
         placeOfIssue: placeOfIssue || null,
+        updatedAt: new Date(),
       },
     });
     revalidatePath('/user/dashboard');
@@ -47,7 +49,7 @@ export async function createFile(
 
 export async function getFilesByFolder(folderId: string) {
   try {
-    const files = await prisma.file.findMany({
+    const files = await prisma.files.findMany({
       where: { 
         folderId,
         deletedAt: null, // Exclude deleted files
@@ -65,7 +67,7 @@ export async function getFilesByFolder(folderId: string) {
 
 export async function deleteFile(id: string, permanent: boolean = false) {
   try {
-    const file = await prisma.file.findUnique({
+    const file = await prisma.files.findUnique({
       where: { id },
     });
 
@@ -84,14 +86,14 @@ export async function deleteFile(id: string, permanent: boolean = false) {
         }
       }
 
-      await prisma.file.delete({
+      await prisma.files.delete({
         where: { id },
       });
     } else {
       // Soft delete - just mark as deleted
-      await prisma.file.update({
+      await prisma.files.update({
         where: { id },
-        data: { deletedAt: new Date() },
+        data: { deletedAt: new Date(), updatedAt: new Date() },
       });
     }
 
@@ -108,9 +110,9 @@ export async function deleteFile(id: string, permanent: boolean = false) {
 
 export async function restoreFile(id: string) {
   try {
-    await prisma.file.update({
+    await prisma.files.update({
       where: { id },
-      data: { deletedAt: null },
+      data: { deletedAt: null, updatedAt: new Date() },
     });
     revalidatePath('/user/dashboard');
     revalidatePath('/admin/dashboard');
@@ -125,7 +127,7 @@ export async function restoreFile(id: string) {
 
 export async function copyFile(id: string, targetFolderId: string) {
   try {
-    const file = await prisma.file.findUnique({
+    const file = await prisma.files.findUnique({
       where: { id },
     });
 
@@ -134,8 +136,9 @@ export async function copyFile(id: string, targetFolderId: string) {
     }
 
     const auth = await getAuth();
-    const newFile = await prisma.file.create({
+    const newFile = await prisma.files.create({
       data: {
+        id: crypto.randomUUID(),
         name: `${file.name} (Copy)`,
         folderId: targetFolderId,
         userId: auth?.userId || null,
@@ -148,6 +151,7 @@ export async function copyFile(id: string, targetFolderId: string) {
         expiryDate: file.expiryDate,
         renewalDate: file.renewalDate,
         placeOfIssue: file.placeOfIssue,
+        updatedAt: new Date(),
       },
     });
 
@@ -167,26 +171,32 @@ export async function getDeletedFiles(companyId?: string) {
     };
 
     if (companyId) {
-      where.folder = {
+      where.folders = {
         companyId,
       };
     }
 
-    const files = await prisma.file.findMany({
+    const files = await prisma.files.findMany({
       where,
       include: {
-        folder: {
+        folders: {
           include: {
-            company: true,
+            companies: true,
           },
         },
-        user: true,
+        users: true,
       },
       orderBy: {
         deletedAt: 'desc',
       },
     });
-    return { success: true, files };
+    // Map plural relation names to singular for compatibility
+    const mappedFiles = files.map(file => ({
+      ...file,
+      folder: file.folders,
+      user: file.users,
+    }));
+    return { success: true, files: mappedFiles };
   } catch (error) {
     console.error('Error fetching deleted files:', error);
     return { success: false, error: 'Failed to fetch deleted files', files: [] };
@@ -198,7 +208,7 @@ export async function permanentlyDeleteOldFiles() {
     const fiveDaysAgo = new Date();
     fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
 
-    const oldDeletedFiles = await prisma.file.findMany({
+    const oldDeletedFiles = await prisma.files.findMany({
       where: {
         deletedAt: {
           lte: fiveDaysAgo,
@@ -218,7 +228,7 @@ export async function permanentlyDeleteOldFiles() {
         }
       }
 
-      await prisma.file.delete({
+      await prisma.files.delete({
         where: { id: file.id },
       });
       deletedCount++;
@@ -233,9 +243,9 @@ export async function permanentlyDeleteOldFiles() {
 
 export async function updateFile(id: string, name: string) {
   try {
-    const file = await prisma.file.update({
+    const file = await prisma.files.update({
       where: { id },
-      data: { name },
+      data: { name, updatedAt: new Date() },
     });
     revalidatePath('/user/dashboard');
     revalidatePath('/admin/dashboard');
@@ -267,8 +277,9 @@ export async function updateFileDetails(
     if (data.expiryDate !== undefined) updateData.expiryDate = data.expiryDate ? new Date(data.expiryDate) : null;
     if (data.renewalDate !== undefined) updateData.renewalDate = data.renewalDate ? new Date(data.renewalDate) : null;
     if (data.placeOfIssue !== undefined) updateData.placeOfIssue = data.placeOfIssue || null;
+    updateData.updatedAt = new Date();
 
-    const file = await prisma.file.update({
+    const file = await prisma.files.update({
       where: { id },
       data: updateData,
     });
@@ -283,18 +294,27 @@ export async function updateFileDetails(
 
 export async function getFileById(id: string) {
   try {
-    const file = await prisma.file.findUnique({
+    const file = await prisma.files.findUnique({
       where: { id },
       include: {
-        folder: {
+        folders: {
           include: {
-            company: true,
+            companies: true,
           },
         },
-        user: true,
+        users: true,
       },
     });
-    return { success: true, file };
+    if (!file) {
+      return { success: false, error: 'File not found' };
+    }
+    // Map plural relation names to singular for compatibility
+    const mappedFile = {
+      ...file,
+      folder: file.folders,
+      user: file.users,
+    };
+    return { success: true, file: mappedFile };
   } catch (error) {
     console.error('Error fetching file:', error);
     return { success: false, error: 'Failed to fetch file' };
@@ -303,20 +323,26 @@ export async function getFileById(id: string) {
 
 export async function getAllFiles() {
   try {
-    const files = await prisma.file.findMany({
+    const files = await prisma.files.findMany({
       include: {
-        folder: {
+        folders: {
           include: {
-            company: true,
+            companies: true,
           },
         },
-        user: true,
+        users: true,
       },
       orderBy: {
         createdAt: 'desc',
       },
     });
-    return { success: true, files };
+    // Map plural relation names to singular for compatibility
+    const mappedFiles = files.map(file => ({
+      ...file,
+      folder: file.folders,
+      user: file.users,
+    }));
+    return { success: true, files: mappedFiles };
   } catch (error) {
     console.error('Error fetching files:', error);
     return { success: false, error: 'Failed to fetch files', files: [] };
@@ -325,22 +351,28 @@ export async function getAllFiles() {
 
 export async function getFilesByCompany(companyId: string) {
   try {
-    const files = await prisma.file.findMany({
+    const files = await prisma.files.findMany({
       where: {
-        folder: {
+        folders: {
           companyId,
         },
         deletedAt: null, // Exclude deleted files
       },
       include: {
-        folder: true,
-        user: true,
+        folders: true,
+        users: true,
       },
       orderBy: {
         createdAt: 'desc',
       },
     });
-    return { success: true, files };
+    // Map plural relation names to singular for compatibility
+    const mappedFiles = files.map(file => ({
+      ...file,
+      folder: file.folders,
+      user: file.users,
+    }));
+    return { success: true, files: mappedFiles };
   } catch (error) {
     console.error('Error fetching files by company:', error);
     return { success: false, error: 'Failed to fetch files', files: [] };
