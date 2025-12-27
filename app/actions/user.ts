@@ -168,6 +168,53 @@ export async function deleteUserAccount(userId: string) {
   }
 }
 
+export async function deleteUser(userId: string) {
+  try {
+    await prisma.users.delete({
+      where: { id: userId },
+    });
+
+    revalidatePath('/admin/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    return { success: false, error: 'Failed to delete user' };
+  }
+}
+
+export async function updateUser(userId: string, email: string, password: string, companyId: string) {
+  try {
+    // Check if email already exists in the company (excluding current user)
+    const existingUser = await prisma.users.findUnique({
+      where: {
+        email_companyId: {
+          email,
+          companyId,
+        },
+      },
+    });
+
+    if (existingUser && existingUser.id !== userId) {
+      return { success: false, error: 'Email already exists in this company' };
+    }
+
+    await prisma.users.update({
+      where: { id: userId },
+      data: { 
+        email, 
+        password,
+        updatedAt: new Date() 
+      },
+    });
+
+    revalidatePath('/admin/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating user:', error);
+    return { success: false, error: 'Failed to update user' };
+  }
+}
+
 export async function getUserStats(userId: string) {
   try {
     const fileCount = await prisma.files.count({

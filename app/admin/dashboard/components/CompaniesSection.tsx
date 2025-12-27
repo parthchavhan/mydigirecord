@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Building2, FolderPlus, Plus, Search, Eye, UserPlus, Trash2, MoreVertical, Edit, Info } from 'lucide-react';
+import { Building2, FolderPlus, Plus, Search, Eye, UserPlus, Trash2, MoreVertical, Edit, Info, Users } from 'lucide-react';
 import Link from 'next/link';
 import type { Company } from '../types';
 
@@ -15,6 +15,7 @@ interface CompaniesSectionProps {
   onSelectCompany: (company: Company) => void;
   onShowUserModal: (company: Company) => void;
   onShowFolderModal: (company: Company) => void;
+  onViewUsers: (company: Company) => void;
   onDeleteCompany: (id: string, name: string) => void;
   onEditFolder: (folder: any) => void;
   onShowFolderInfo: (folder: any) => void;
@@ -32,6 +33,7 @@ export default function CompaniesSection({
   onSelectCompany,
   onShowUserModal,
   onShowFolderModal,
+  onViewUsers,
   onDeleteCompany,
   onEditFolder,
   onShowFolderInfo,
@@ -102,6 +104,13 @@ export default function CompaniesSection({
                   >
                     <Eye className="w-5 h-5" />
                   </Link>
+                  <button
+                    onClick={() => onViewUsers(company)}
+                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
+                    title="View Users"
+                  >
+                    <Users className="w-5 h-5" />
+                  </button>
                   <button
                     onClick={() => onShowUserModal(company)}
                     className="p-2 text-[#9f1d35] hover:bg-[#9f1d35]/10 rounded-lg"

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { createCompany, deleteCompany } from '@/app/actions/company';
 import { createFolder, deleteFolder, updateFolder, getFolderStats } from '@/app/actions/folder';
-import { createUser } from '@/app/actions/user';
+import { createUser, getUsersByCompany, deleteUser, updateUser } from '@/app/actions/user';
 import { getFoldersByCompany } from '@/app/actions/folder';
 import type { Company, Folder } from '../types';
 
@@ -21,6 +21,7 @@ export function useCompanyHandlers(
   const [infoFolder, setInfoFolder] = useState<Folder | null>(null);
   const [folderStats, setFolderStats] = useState<any | null>(null);
   const [availableFolders, setAvailableFolders] = useState<Folder[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
 
   const handleCreateCompany = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,6 +167,54 @@ export function useCompanyHandlers(
     }
   };
 
+  const loadUsers = async (companyId: string) => {
+    const result = await getUsersByCompany(companyId);
+    if (result.success) {
+      setUsers(result.users || []);
+    } else {
+      toast.error(result.error || 'Failed to load users');
+      setUsers([]);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`Are you sure you want to delete user "${userName}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    const result = await deleteUser(userId);
+    if (result.success) {
+      toast.success('User deleted successfully!');
+      if (selectedCompany) {
+        await loadUsers(selectedCompany.id);
+      }
+    } else {
+      toast.error(result.error || 'Failed to delete user');
+    }
+  };
+
+  const handleUpdateUser = async (userId: string, email: string, password: string) => {
+    if (!selectedCompany) {
+      toast.error('No company selected');
+      return false;
+    }
+
+    if (!email.trim() || !password.trim()) {
+      toast.error('Email and password are required');
+      return false;
+    }
+
+    const result = await updateUser(userId, email, password, selectedCompany.id);
+    if (result.success) {
+      toast.success('User updated successfully!');
+      await loadUsers(selectedCompany.id);
+      return true;
+    } else {
+      toast.error(result.error || 'Failed to update user');
+      return false;
+    }
+  };
+
   return {
     selectedCompany,
     setSelectedCompany,
@@ -199,6 +248,11 @@ export function useCompanyHandlers(
     handleUpdateFolder,
     handleShowFolderInfo,
     loadFolders,
+    users,
+    setUsers,
+    loadUsers,
+    handleDeleteUser,
+    handleUpdateUser,
   };
 }
 

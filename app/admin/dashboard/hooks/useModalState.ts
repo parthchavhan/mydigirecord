@@ -11,6 +11,7 @@ export function useModalState() {
   const [showUpdateDetailsModal, setShowUpdateDetailsModal] = useState(false);
   const [showShareFileModal, setShowShareFileModal] = useState(false);
   const [showPasteFileModal, setShowPasteFileModal] = useState(false);
+  const [showViewUsersModal, setShowViewUsersModal] = useState(false);
 
   return {
     showCompanyModal,
@@ -33,6 +34,8 @@ export function useModalState() {
     setShowShareFileModal,
     showPasteFileModal,
     setShowPasteFileModal,
+    showViewUsersModal,
+    setShowViewUsersModal,
   };
 }
 

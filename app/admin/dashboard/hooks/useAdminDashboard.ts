@@ -1,21 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { getCompanies } from '@/app/actions/company';
-import { getAllFiles } from '@/app/actions/file';
-import type { Company, File } from '../types';
+import type { Company } from '../types';
 
 export function useAdminDashboard() {
   const router = useRouter();
   const [companies, setCompanies] = useState<Company[]>([]);
   const [filteredCompanies, setFilteredCompanies] = useState<Company[]>([]);
   const [companySearchTerm, setCompanySearchTerm] = useState('');
-  const [files, setFiles] = useState<File[]>([]);
-  const [filteredFiles, setFilteredFiles] = useState<File[]>([]);
-  const [fileSearchTerm, setFileSearchTerm] = useState('');
 
   useEffect(() => {
     loadCompanies();
-    loadFiles();
   }, []);
 
   useEffect(() => {
@@ -28,19 +23,6 @@ export function useAdminDashboard() {
       setFilteredCompanies(filtered);
     }
   }, [companySearchTerm, companies]);
-
-  useEffect(() => {
-    if (fileSearchTerm.trim() === '') {
-      setFilteredFiles(files);
-    } else {
-      const filtered = files.filter((file) =>
-        file.name.toLowerCase().includes(fileSearchTerm.toLowerCase()) ||
-        file.folder?.name.toLowerCase().includes(fileSearchTerm.toLowerCase()) ||
-        file.folder?.company?.name.toLowerCase().includes(fileSearchTerm.toLowerCase())
-      );
-      setFilteredFiles(filtered);
-    }
-  }, [fileSearchTerm, files]);
 
   const loadCompanies = async () => {
     const result = await getCompanies();
@@ -60,19 +42,6 @@ export function useAdminDashboard() {
     }
   };
 
-  const loadFiles = async () => {
-    const result = await getAllFiles();
-    if (result.success) {
-      const filesList = (result.files || []).map((file: any) => ({
-        ...file,
-        createdAt: file.createdAt instanceof Date ? file.createdAt.toISOString() : file.createdAt,
-        updatedAt: file.updatedAt instanceof Date ? file.updatedAt.toISOString() : file.updatedAt,
-      }));
-      setFiles(filesList);
-      setFilteredFiles(filesList);
-    }
-  };
-
   return {
     router,
     companies,
@@ -81,13 +50,7 @@ export function useAdminDashboard() {
     setFilteredCompanies,
     companySearchTerm,
     setCompanySearchTerm,
-    files,
-    setFiles,
-    filteredFiles,
-    fileSearchTerm,
-    setFileSearchTerm,
     loadCompanies,
-    loadFiles,
   };
 }
 
