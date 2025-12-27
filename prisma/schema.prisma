@@ -1,0 +1,104 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users    User[]
+  folders  Folder[]
+  payments Payment[]
+
+  @@map("companies")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String
+  password  String
+  name      String
+  companyId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  payments Payment[]
+  folders  Folder[]
+  files    File[]
+
+  @@unique([email, companyId])
+  @@map("users")
+}
+
+model Folder {
+  id        String    @id @default(cuid())
+  name      String
+  companyId String
+  parentId  String?
+  userId    String?
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  parent   Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children Folder[] @relation("FolderHierarchy")
+  files    File[]
+  user     User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("folders")
+}
+
+model File {
+  id           String    @id @default(cuid())
+  name         String
+  folderId     String
+  userId       String?
+  size         Float     @default(1048576) // Default 1MB in bytes
+  url          String?   // UploadThing file URL
+  key          String?   // UploadThing file key
+  mimeType     String?   // File MIME type
+  category     String?   // Document category (Personal, Educational, Financial, etc.)
+  issueDate    DateTime? // Issue date
+  expiryDate   DateTime? // Expiry date
+  renewalDate  DateTime? // Renewal date
+  placeOfIssue String?   // Place of issue
+  deletedAt    DateTime? // Soft delete timestamp
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  folder Folder @relation(fields: [folderId], references: [id], onDelete: Cascade)
+  user   User?  @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("files")
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  amount      Float
+  companyId   String
+  userId      String?
+  status      String   @default("pending") // pending, completed, failed
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("payments")
+}
