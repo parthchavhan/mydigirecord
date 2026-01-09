@@ -76,7 +76,7 @@ export default function UserDashboard() {
                   <p className="text-sm text-gray-500">{company?.name || ''}</p>
                 </div>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-3 ml-auto">
                 <Link
                   href="/user/documents"
                   className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100"

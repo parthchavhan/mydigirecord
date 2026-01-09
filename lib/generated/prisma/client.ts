@@ -64,3 +64,8 @@ export type payments = Prisma.paymentsModel
  * 
  */
 export type users = Prisma.usersModel
+/**
+ * Model auditLogs
+ * 
+ */
+export type auditLogs = Prisma.auditLogsModel

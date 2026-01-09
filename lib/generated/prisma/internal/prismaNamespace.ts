@@ -388,7 +388,8 @@ export const ModelName = {
   files: 'files',
   folders: 'folders',
   payments: 'payments',
-  users: 'users'
+  users: 'users',
+  auditLogs: 'auditLogs'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -404,7 +405,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "companies" | "files" | "folders" | "payments" | "users"
+    modelProps: "companies" | "files" | "folders" | "payments" | "users" | "auditLogs"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -778,6 +779,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    auditLogs: {
+      payload: Prisma.$auditLogsPayload<ExtArgs>
+      fields: Prisma.auditLogsFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.auditLogsFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$auditLogsPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.auditLogsFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$auditLogsPayload>
+        }
+        findFirst: {
+          args: Prisma.auditLogsFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$auditLogsPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.auditLogsFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$auditLogsPayload>
+        }
+        findMany: {
+          args: Prisma.auditLogsFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$auditLogsPayload>[]
+        }
+        create: {
+          args: Prisma.auditLogsCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$auditLogsPayload>
+        }
+        createMany: {
+          args: Prisma.auditLogsCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.auditLogsCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$auditLogsPayload>[]
+        }
+        delete: {
+          args: Prisma.auditLogsDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$auditLogsPayload>
+        }
+        update: {
+          args: Prisma.auditLogsUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$auditLogsPayload>
+        }
+        deleteMany: {
+          args: Prisma.auditLogsDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.auditLogsUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.auditLogsUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$auditLogsPayload>[]
+        }
+        upsert: {
+          args: Prisma.auditLogsUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$auditLogsPayload>
+        }
+        aggregate: {
+          args: Prisma.AuditLogsAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateAuditLogs>
+        }
+        groupBy: {
+          args: Prisma.auditLogsGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AuditLogsGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.auditLogsCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AuditLogsCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -857,7 +932,9 @@ export const FoldersScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   userId: 'userId',
-  deletedAt: 'deletedAt'
+  deletedAt: 'deletedAt',
+  isLocked: 'isLocked',
+  password: 'password'
 } as const
 
 export type FoldersScalarFieldEnum = (typeof FoldersScalarFieldEnum)[keyof typeof FoldersScalarFieldEnum]
@@ -883,11 +960,27 @@ export const UsersScalarFieldEnum = {
   password: 'password',
   name: 'name',
   companyId: 'companyId',
+  role: 'role',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type UsersScalarFieldEnum = (typeof UsersScalarFieldEnum)[keyof typeof UsersScalarFieldEnum]
+
+
+export const AuditLogsScalarFieldEnum = {
+  id: 'id',
+  action: 'action',
+  entityType: 'entityType',
+  entityId: 'entityId',
+  entityName: 'entityName',
+  userId: 'userId',
+  companyId: 'companyId',
+  details: 'details',
+  createdAt: 'createdAt'
+} as const
+
+export type AuditLogsScalarFieldEnum = (typeof AuditLogsScalarFieldEnum)[keyof typeof AuditLogsScalarFieldEnum]
 
 
 export const SortOrder = {
@@ -959,6 +1052,13 @@ export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, '
  * Reference to a field of type 'Float[]'
  */
 export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>
+    
+
+
+/**
+ * Reference to a field of type 'Boolean'
+ */
+export type BooleanFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Boolean'>
     
 
 
@@ -1075,6 +1175,7 @@ export type GlobalOmitConfig = {
   folders?: Prisma.foldersOmit
   payments?: Prisma.paymentsOmit
   users?: Prisma.usersOmit
+  auditLogs?: Prisma.auditLogsOmit
 }
 
 /* Types for Logging */

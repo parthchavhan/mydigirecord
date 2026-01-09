@@ -55,7 +55,8 @@ export const ModelName = {
   files: 'files',
   folders: 'folders',
   payments: 'payments',
-  users: 'users'
+  users: 'users',
+  auditLogs: 'auditLogs'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -114,7 +115,9 @@ export const FoldersScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   userId: 'userId',
-  deletedAt: 'deletedAt'
+  deletedAt: 'deletedAt',
+  isLocked: 'isLocked',
+  password: 'password'
 } as const
 
 export type FoldersScalarFieldEnum = (typeof FoldersScalarFieldEnum)[keyof typeof FoldersScalarFieldEnum]
@@ -140,11 +143,27 @@ export const UsersScalarFieldEnum = {
   password: 'password',
   name: 'name',
   companyId: 'companyId',
+  role: 'role',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt'
 } as const
 
 export type UsersScalarFieldEnum = (typeof UsersScalarFieldEnum)[keyof typeof UsersScalarFieldEnum]
+
+
+export const AuditLogsScalarFieldEnum = {
+  id: 'id',
+  action: 'action',
+  entityType: 'entityType',
+  entityId: 'entityId',
+  entityName: 'entityName',
+  userId: 'userId',
+  companyId: 'companyId',
+  details: 'details',
+  createdAt: 'createdAt'
+} as const
+
+export type AuditLogsScalarFieldEnum = (typeof AuditLogsScalarFieldEnum)[keyof typeof AuditLogsScalarFieldEnum]
 
 
 export const SortOrder = {

@@ -550,26 +550,22 @@ export default function DocumentsPage() {
 
   return (
     <div className="flex-1 flex flex-col">
-        <header className="bg-white shadow-sm border-b">
+        <header className="bg-white shadow-sm border-b relative">
           <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="flex items-center space-x-2 sm:space-x-3">
-                <File className="w-6 h-6 sm:w-8 sm:h-8 text-[#9f1d35] flex-shrink-0" />
-                <div>
-                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Documents</h1>
-                  <p className="text-xs sm:text-sm text-gray-500">{documentCount} {documentCount === 1 ? 'document' : 'documents'}</p>
-                </div>
-              </div>
-              <div className="flex items-center space-x-3 w-full sm:w-auto">
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-100 text-sm sm:text-base w-full sm:w-auto justify-center sm:justify-start"
-                >
-                  <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
-                  <span>Logout</span>
-                </button>
+            <div className="flex items-center space-x-2 sm:space-x-3">
+              <File className="w-6 h-6 sm:w-8 sm:h-8 text-[#9f1d35] flex-shrink-0" />
+              <div>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Documents</h1>
+                <p className="text-xs sm:text-sm text-gray-500">{documentCount} {documentCount === 1 ? 'document' : 'documents'}</p>
               </div>
             </div>
+            <button
+              onClick={handleLogout}
+              className="absolute top-3 sm:top-4 right-4 sm:right-6 lg:right-8 flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-100 text-sm sm:text-base"
+            >
+              <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
+              <span>Logout</span>
+            </button>
           </div>
         </header>
 

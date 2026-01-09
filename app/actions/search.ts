@@ -20,28 +20,34 @@ export async function globalSearch(companyId: string, searchTerm: string) {
     const isAdmin = auth?.role === 'admin' || auth?.userId === 'admin' || 
       (auth?.userId && auth.userId !== 'admin' ? (await prisma.users.findUnique({ where: { id: auth.userId } }))?.role === 'admin' || (await prisma.users.findUnique({ where: { id: auth.userId } }))?.role === 'super_admin' : false);
 
-    const fileWhere: any = {
-      folders: {
-        companyId,
-        deletedAt: null,
-      },
-      deletedAt: null,
-    };
-
     const folderWhere: any = {
       companyId,
       deletedAt: null,
     };
 
-    // If not admin, exclude locked folders and files in locked folders
+    // If not admin, exclude locked folders
     if (!isAdmin) {
-      fileWhere.folders.isLocked = false;
       folderWhere.isLocked = false;
     }
 
+    // First, get all folder IDs for this company
+    const folders = await prisma.folders.findMany({
+      where: folderWhere,
+      select: {
+        id: true,
+      },
+    });
+
+    const folderIds = folders.map(f => f.id);
+
     // Search all files in the company (including nested folders)
-    const allFiles = await prisma.files.findMany({
-      where: fileWhere,
+    const allFiles = folderIds.length > 0 ? await prisma.files.findMany({
+      where: {
+        folderId: {
+          in: folderIds,
+        },
+        deletedAt: null,
+      },
       include: {
         folders: {
           include: {
@@ -50,7 +56,7 @@ export async function globalSearch(companyId: string, searchTerm: string) {
         },
         users: true,
       },
-    });
+    }) : [];
 
     // Search all folders in the company
     const allFolders = await prisma.folders.findMany({
