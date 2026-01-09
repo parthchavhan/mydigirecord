@@ -428,3 +428,23 @@ export async function getFolderStats(folderId: string) {
   }
 }
 
+export async function getLockedFolders(companyId: string) {
+  try {
+    const folders = await prisma.folders.findMany({
+      where: {
+        companyId,
+        isLocked: true,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        name: true,
+        isLocked: true,
+      },
+    });
+    return { success: true, folders };
+  } catch (error) {
+    console.error('Error fetching locked folders:', error);
+    return { success: false, error: 'Failed to fetch locked folders', folders: [] };
+  }
+}

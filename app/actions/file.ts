@@ -478,3 +478,77 @@ export async function getFilesByCompany(companyId: string) {
   }
 }
 
+export async function getAllFilesWithFolders(companyId: string, includeLocked: boolean = false, verifiedFolderIds: string[] = []) {
+  try {
+    const auth = await getAuth();
+    const isAdmin = auth?.role === 'admin' || auth?.userId === 'admin' || 
+      (auth?.userId && auth.userId !== 'admin' ? (await prisma.users.findUnique({ where: { id: auth.userId } }))?.role === 'admin' || (await prisma.users.findUnique({ where: { id: auth.userId } }))?.role === 'super_admin' : false);
+
+    // Get all folders for this company
+    const folderWhere: any = {
+      companyId,
+      deletedAt: null,
+    };
+
+    // If not admin and not including locked, exclude locked folders
+    // If including locked, only show verified locked folders
+    if (!isAdmin) {
+      if (includeLocked) {
+        // Only include locked folders that have been verified
+        folderWhere.OR = [
+          { isLocked: false },
+          { isLocked: true, id: { in: verifiedFolderIds } }
+        ];
+      } else {
+        folderWhere.isLocked = false;
+      }
+    }
+
+    const folders = await prisma.folders.findMany({
+      where: folderWhere,
+      select: {
+        id: true,
+        name: true,
+        isLocked: true,
+      },
+    });
+
+    const folderIds = folders.map(f => f.id);
+    const folderMap = new Map(folders.map(f => [f.id, { name: f.name, isLocked: f.isLocked }]));
+
+    if (folderIds.length === 0) {
+      return { success: true, files: [] };
+    }
+
+    // Get all files in these folders
+    const files = await prisma.files.findMany({
+      where: {
+        folderId: {
+          in: folderIds,
+        },
+        deletedAt: null,
+      },
+      include: {
+        folders: true,
+        users: true,
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    // Map files with folder information
+    const mappedFiles = files.map(file => ({
+      ...file,
+      folder: file.folders,
+      user: file.users,
+      folderName: folderMap.get(file.folderId)?.name || 'Unknown',
+      folderIsLocked: folderMap.get(file.folderId)?.isLocked || false,
+    }));
+
+    return { success: true, files: mappedFiles };
+  } catch (error) {
+    console.error('Error fetching all files with folders:', error);
+    return { success: false, error: 'Failed to fetch files', files: [] };
+  }
+}

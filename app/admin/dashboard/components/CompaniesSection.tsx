@@ -149,7 +149,9 @@ export default function CompaniesSection({
                         <FolderPlus className="w-4 h-4 text-gray-400" />
                         <span className="text-gray-700 truncate">{folder.name}</span>
                         {folder.isLocked && (
-                          <Lock className="w-3 h-3 text-orange-500 flex-shrink-0" title="Locked folder" />
+                          <span title="Locked folder">
+                            <Lock className="w-3 h-3 text-orange-500 flex-shrink-0" />
+                          </span>
                         )}
                       </div>
                       <div className="relative">

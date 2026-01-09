@@ -203,11 +203,11 @@ export default function DocumentsPage() {
       setPasswordPromptFolder(folder);
       return;
     }
-    
+
     // If password is required but folder structure is returned (nested folders visible)
     if (result.requiresPassword && result.folder) {
       // Show nested folders (they are visible) but still require password for full access
-      const folder = result.folder;
+    const folder = result.folder;
       const newPath: BreadcrumbItem[] = [...currentPath, { id: folder.id, name: folder.name, type: 'folder' as const }];
       setCurrentPath(newPath);
       
@@ -224,7 +224,7 @@ export default function DocumentsPage() {
       // User can click nested folders or enter password via the lock icon if needed
       return;
     }
-    
+
     if (!result.success || !result.folder) {
       toast.error(result.error || 'Folder not found');
       return;
@@ -706,13 +706,39 @@ export default function DocumentsPage() {
   const loadAvailableFolders = async () => {
     if (!company) return;
     try {
-    const result = await getFoldersByCompany(company.id);
+      // Get all top-level folders first (including locked ones)
+      const result = await getFoldersByCompany(company.id, null, true);
     if (result.success) {
-        // Exclude the current folder from the list
-        const filteredFolders = (result.folders || []).filter(
-          (folder: any) => folder.id !== currentFolderId
-        );
-        setAvailableFolders(filteredFolders);
+        // Recursively flatten all nested folders
+        const flattenFolders = (folders: any[], parentPath: string = ''): any[] => {
+          const flattened: any[] = [];
+          
+          folders.forEach((folder) => {
+            // Skip current folder and the folder containing the file being moved
+            if (folder.id === currentFolderId || folder.id === movedFile?.folderId) {
+              return;
+            }
+            
+            // Build display path
+            const displayPath = parentPath ? `${parentPath} / ${folder.name}` : folder.name;
+            
+            // Add folder to list
+            flattened.push({
+              ...folder,
+              displayName: displayPath,
+            });
+            
+            // Recursively add nested folders
+            if (folder.other_folders && folder.other_folders.length > 0) {
+              flattened.push(...flattenFolders(folder.other_folders, displayPath));
+            }
+          });
+          
+          return flattened;
+        };
+        
+        const allFolders = flattenFolders(result.folders || []);
+        setAvailableFolders(allFolders);
       } else {
         console.error('Failed to load folders:', result.error);
         setAvailableFolders([]);
@@ -776,20 +802,31 @@ export default function DocumentsPage() {
     <div className="flex-1 flex flex-col">
         <header className="bg-white shadow-sm border-b relative">
           <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
-            <div className="flex items-center space-x-2 sm:space-x-3">
-              <File className="w-6 h-6 sm:w-8 sm:h-8 text-[#9f1d35] flex-shrink-0" />
-              <div>
-                <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Documents</h1>
-                <p className="text-xs sm:text-sm text-gray-500">{documentCount} {documentCount === 1 ? 'document' : 'documents'}</p>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <File className="w-6 h-6 sm:w-8 sm:h-8 text-[#9f1d35] flex-shrink-0" />
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Documents</h1>
+                  <p className="text-xs sm:text-sm text-gray-500">{documentCount} {documentCount === 1 ? 'document' : 'documents'}</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-3">
+                <Link
+                  href="/user/documents/all"
+                  className="flex items-center space-x-2 text-[#9f1d35] hover:text-[#8a1a2e] px-3 sm:px-4 py-2 rounded-lg hover:bg-red-50 text-sm sm:text-base transition-colors"
+                >
+                  <Eye className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span>View All Documents</span>
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-100 text-sm sm:text-base"
+                >
+                  <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span>Logout</span>
+                </button>
               </div>
             </div>
-            <button
-              onClick={handleLogout}
-              className="absolute top-3 sm:top-4 right-4 sm:right-6 lg:right-8 flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-100 text-sm sm:text-base"
-            >
-              <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span>Logout</span>
-            </button>
           </div>
         </header>
 
@@ -963,7 +1000,7 @@ export default function DocumentsPage() {
                           >
                             {isFolder ? (
                               <div className="relative">
-                                <Folder className="w-8 h-8 sm:w-10 sm:h-10 text-[#9f1d35] flex-shrink-0 group-hover:scale-110 transition-transform" />
+                              <Folder className="w-8 h-8 sm:w-10 sm:h-10 text-[#9f1d35] flex-shrink-0 group-hover:scale-110 transition-transform" />
                                 {item.isLocked && (
                                   <Lock className="w-3 h-3 sm:w-4 sm:h-4 absolute -top-1 -right-1 bg-yellow-500 text-white rounded-full p-0.5" />
                                 )}
@@ -973,7 +1010,7 @@ export default function DocumentsPage() {
                             )}
                             <div className="flex-1 min-w-0 space-y-1">
                               <div className="flex items-center gap-1">
-                                <p className="text-sm sm:text-base font-medium text-gray-900 truncate group-hover:text-[#9f1d35] transition-colors">{item.name}</p>
+                              <p className="text-sm sm:text-base font-medium text-gray-900 truncate group-hover:text-[#9f1d35] transition-colors">{item.name}</p>
                                 {isFolder && item.isLocked && (
                                   <span title="Locked folder - password required">
                                     <Lock className="w-3 h-3 text-yellow-600 flex-shrink-0" />
@@ -1450,7 +1487,12 @@ export default function DocumentsPage() {
                       className="w-full text-left px-4 py-2 hover:bg-gray-100 rounded-lg flex items-center space-x-2 transition-colors"
                   >
                       <Folder className="w-4 h-4 text-[#9f1d35] flex-shrink-0" />
-                      <span className="truncate">{folder.name}</span>
+                      <span className="truncate flex-1" title={folder.displayName || folder.name}>
+                        {folder.displayName || folder.name}
+                      </span>
+                      {folder.isLocked && (
+                        <Lock className="w-3 h-3 text-yellow-600 flex-shrink-0" />
+                      )}
                   </button>
                 ))}
               </div>
