@@ -332,7 +332,7 @@ export default function Home() {
                     <Users className="w-6 h-6 text-[#9f1d35]" />
                   </div>
                   <div>
-                    <div className="font-semibold text-gray-900">Sarah M.</div>
+                    <div className="font-semibold text-gray-900">Archit Gour</div>
                     <div className="text-sm text-gray-600">Family User</div>
                   </div>
                 </div>
@@ -352,7 +352,7 @@ export default function Home() {
                     <TrendingUp className="w-6 h-6 text-[#9f1d35]" />
                   </div>
                   <div>
-                    <div className="font-semibold text-gray-900">Rajesh K.</div>
+                    <div className="font-semibold text-gray-900">Ravi Kiran</div>
                     <div className="text-sm text-gray-600">Business Owner</div>
                   </div>
                 </div>
@@ -372,7 +372,7 @@ export default function Home() {
                     <Zap className="w-6 h-6 text-[#9f1d35]" />
                   </div>
                   <div>
-                    <div className="font-semibold text-gray-900">Priya S.</div>
+                    <div className="font-semibold text-gray-900">Anil</div>
                     <div className="text-sm text-gray-600">Freelancer</div>
                   </div>
                 </div>
