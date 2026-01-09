@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { History, LogOut, Calendar, User, File, Folder } from 'lucide-react';
-import { logout, getAuth } from '@/app/actions/auth';
+import { logout, getAuth, checkIsAdmin } from '@/app/actions/auth';
 import { getAuditLogs } from '@/app/actions/audit';
 import toast from 'react-hot-toast';
 
@@ -22,23 +22,12 @@ export default function HistoryPage() {
           return;
         }
 
-        // Check if user is admin
-        if (auth.role !== 'admin' && auth.userId !== 'admin') {
-          if (auth.userId) {
-            const { prisma } = await import('@/lib/prisma');
-            const user = await prisma.users.findUnique({
-              where: { id: auth.userId },
-            });
-            if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-              toast.error('Access denied. Admin privileges required.');
-              router.push('/user/dashboard');
-              return;
-            }
-          } else {
-            toast.error('Access denied. Admin privileges required.');
-            router.push('/user/dashboard');
-            return;
-          }
+        // Check if user is admin using server action
+        const adminCheck = await checkIsAdmin();
+        if (!adminCheck.success || !adminCheck.isAdmin) {
+          toast.error('Access denied. Admin privileges required.');
+          router.push('/user/dashboard');
+          return;
         }
 
         setCompanyId(auth.companyId);

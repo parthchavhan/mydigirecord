@@ -10,6 +10,7 @@ interface User {
   name: string;
   email: string;
   password: string;
+  role?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -21,6 +22,7 @@ interface ViewUsersModalProps {
   users: User[];
   onDeleteUser: (userId: string, userName: string) => void;
   onUpdateUser: (userId: string, email: string, password: string) => Promise<boolean>;
+  onUpdateUserRole?: (userId: string, role: string) => Promise<boolean>;
   loadUsers: (companyId: string) => void;
 }
 
@@ -31,11 +33,13 @@ export default function ViewUsersModal({
   users,
   onDeleteUser,
   onUpdateUser,
+  onUpdateUserRole,
   loadUsers,
 }: ViewUsersModalProps) {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editEmail, setEditEmail] = useState('');
   const [editPassword, setEditPassword] = useState('');
+  const [editRole, setEditRole] = useState('');
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -48,20 +52,30 @@ export default function ViewUsersModal({
     setEditingUserId(user.id);
     setEditEmail(user.email);
     setEditPassword(user.password);
+    setEditRole(user.role || 'employee');
   };
 
   const handleCancelEdit = () => {
     setEditingUserId(null);
     setEditEmail('');
     setEditPassword('');
+    setEditRole('');
   };
 
   const handleSaveEdit = async (userId: string) => {
     const success = await onUpdateUser(userId, editEmail, editPassword);
     if (success) {
+      // Update role if changed and handler is available
+      if (onUpdateUserRole && editRole) {
+        const currentUser = users.find(u => u.id === userId);
+        if (currentUser && currentUser.role !== editRole) {
+          await onUpdateUserRole(userId, editRole);
+        }
+      }
       setEditingUserId(null);
       setEditEmail('');
       setEditPassword('');
+      setEditRole('');
     }
   };
 
@@ -98,6 +112,9 @@ export default function ViewUsersModal({
                     Email / ID
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Role
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Password
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -125,6 +142,27 @@ export default function ViewUsersModal({
                         />
                       ) : (
                         <span>{user.email}</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                      {editingUserId === user.id ? (
+                        <select
+                          value={editRole}
+                          onChange={(e) => setEditRole(e.target.value)}
+                          className="w-full px-2 py-1 border border-gray-300 rounded focus:ring-2 focus:ring-[#9f1d35] focus:border-[#9f1d35] bg-white"
+                        >
+                          <option value="employee">Employee</option>
+                          <option value="admin">Admin</option>
+                          <option value="super_admin">Super Admin</option>
+                        </select>
+                      ) : (
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          user.role === 'super_admin' ? 'bg-purple-100 text-purple-800' :
+                          user.role === 'admin' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {user.role || 'employee'}
+                        </span>
                       )}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">

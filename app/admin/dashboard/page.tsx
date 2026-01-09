@@ -162,6 +162,7 @@ export default function AdminDashboard() {
         users={companyHandlers.users}
         onDeleteUser={companyHandlers.handleDeleteUser}
         onUpdateUser={companyHandlers.handleUpdateUser}
+        onUpdateUserRole={companyHandlers.handleUpdateUserRole}
         loadUsers={companyHandlers.loadUsers}
       />
     </div>

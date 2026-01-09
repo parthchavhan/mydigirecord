@@ -2,7 +2,7 @@ import { useState } from 'react';
 import toast from 'react-hot-toast';
 import { createCompany, deleteCompany } from '@/app/actions/company';
 import { createFolder, deleteFolder, updateFolder, getFolderStats } from '@/app/actions/folder';
-import { createUser, getUsersByCompany, deleteUser, updateUser } from '@/app/actions/user';
+import { createUser, getUsersByCompany, deleteUser, updateUser, updateUserRole } from '@/app/actions/user';
 import { getFoldersByCompany } from '@/app/actions/folder';
 import type { Company, Folder } from '../types';
 
@@ -215,6 +215,20 @@ export function useCompanyHandlers(
     }
   };
 
+  const handleUpdateUserRole = async (userId: string, role: string) => {
+    const result = await updateUserRole(userId, role);
+    if (result.success) {
+      toast.success('User role updated successfully!');
+      if (selectedCompany) {
+        await loadUsers(selectedCompany.id);
+      }
+      return true;
+    } else {
+      toast.error(result.error || 'Failed to update user role');
+      return false;
+    }
+  };
+
   return {
     selectedCompany,
     setSelectedCompany,
@@ -253,6 +267,7 @@ export function useCompanyHandlers(
     loadUsers,
     handleDeleteUser,
     handleUpdateUser,
+    handleUpdateUserRole,
   };
 }
 

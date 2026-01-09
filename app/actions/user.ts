@@ -229,6 +229,42 @@ export async function updateUser(userId: string, email: string, password: string
   }
 }
 
+export async function updateUserRole(userId: string, newRole: string) {
+  try {
+    const { getAuth } = await import('./auth');
+    const auth = await getAuth();
+    
+    // Only super_admin can change roles to admin or super_admin
+    if (newRole === 'admin' || newRole === 'super_admin') {
+      if (auth?.role !== 'admin' && auth?.userId !== 'admin') {
+        const user = auth?.userId ? await prisma.users.findUnique({ where: { id: auth.userId } }) : null;
+        if (!user || user.role !== 'super_admin') {
+          return { success: false, error: 'Only super admins can assign admin roles' };
+        }
+      }
+    }
+
+    // Validate role
+    if (!['employee', 'admin', 'super_admin'].includes(newRole)) {
+      return { success: false, error: 'Invalid role' };
+    }
+
+    await prisma.users.update({
+      where: { id: userId },
+      data: { 
+        role: newRole,
+        updatedAt: new Date() 
+      },
+    });
+
+    revalidatePath('/admin/dashboard');
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating user role:', error);
+    return { success: false, error: 'Failed to update user role' };
+  }
+}
+
 export async function getUserStats(userId: string) {
   try {
     const fileCount = await prisma.files.count({

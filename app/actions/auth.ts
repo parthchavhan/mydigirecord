@@ -90,3 +90,32 @@ export async function requireAuth(role?: 'admin' | 'user') {
   return auth;
 }
 
+export async function checkIsAdmin() {
+  try {
+    const auth = await getAuth();
+    if (!auth) {
+      return { success: false, isAdmin: false };
+    }
+
+    // Check if user is admin or super_admin
+    if (auth.role === 'admin' || auth.userId === 'admin') {
+      return { success: true, isAdmin: true };
+    }
+
+    // Check database if user has admin role
+    if (auth.userId && auth.userId !== 'admin') {
+      const user = await prisma.users.findUnique({
+        where: { id: auth.userId },
+        select: { role: true },
+      });
+      if (user && (user.role === 'admin' || user.role === 'super_admin')) {
+        return { success: true, isAdmin: true };
+      }
+    }
+
+    return { success: true, isAdmin: false };
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+    return { success: false, isAdmin: false };
+  }
+}

@@ -6,7 +6,7 @@ const SECRET_KEY = new TextEncoder().encode(
 
 export interface JWTPayload {
   userId: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'user' | 'super_admin';
   companyId?: string;
   [key: string]: unknown;
 }

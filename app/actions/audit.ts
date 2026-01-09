@@ -44,7 +44,18 @@ export async function getAuditLogs(companyId: string, limit: number = 100) {
     }
 
     // Only admins and super_admins can view logs
-    if (auth.role !== 'admin' && auth.role !== 'super_admin') {
+    // Check if user is admin or super_admin (including checking database for users)
+    let isAdmin = auth.role === 'admin' || auth.role === 'super_admin' || auth.userId === 'admin';
+    
+    if (!isAdmin && auth.userId && auth.userId !== 'admin') {
+      const user = await prisma.users.findUnique({ 
+        where: { id: auth.userId },
+        select: { role: true }
+      });
+      isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+    }
+    
+    if (!isAdmin) {
       return { success: false, error: 'Unauthorized - Admin access required', logs: [] };
     }
 
