@@ -112,11 +112,14 @@ export default function EditFileDetailsModal({
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9f1d35] focus:border-transparent bg-white"
             >
               <option value="">Select category...</option>
-              <option value="ID">ID</option>
+              <option value="Personal">Personal</option>
+              <option value="Educational">Educational</option>
+              <option value="Financial">Financial</option>
+              <option value="Legal">Legal</option>
+              <option value="Medical">Medical</option>
+              <option value="Professional">Professional</option>
+              <option value="Shared With me">Shared With me</option>
               <option value="Certificate">Certificate</option>
-              <option value="License">License</option>
-              <option value="Passport">Passport</option>
-              <option value="Other">Other</option>
             </select>
           </div>
 

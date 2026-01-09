@@ -1,8 +1,8 @@
 import { Company, Folder, File, User, AuthToken } from './types';
 
-const COMPANIES_KEY = 'mydigirecord_companies';
-const USERS_KEY = 'mydigirecord_users';
-const AUTH_KEY = 'mydigirecord_auth';
+const COMPANIES_KEY = 'mendorabox_companies';
+const USERS_KEY = 'mendorabox_users';
+const AUTH_KEY = 'mendorabox_auth';
 
 export const storage = {
   // Companies

@@ -3,6 +3,7 @@
 import { LayoutDashboard, FileText, Settings, Trash2 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Logo from '@/components/Logo';
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -17,7 +18,7 @@ export default function Sidebar() {
   return (
     <aside className="w-64 bg-[#1e3a5f] min-h-screen flex flex-col">
       <div className="p-6 border-b border-[#2a4a6f]">
-        <h2 className="text-white text-xl font-bold">MyDigiRecord</h2>
+        <Logo variant="text-only" size="md" className="text-white" />
       </div>
       <nav className="flex-1 p-4">
         <ul className="space-y-2">

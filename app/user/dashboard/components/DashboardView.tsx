@@ -14,6 +14,7 @@ const CATEGORIES = [
   'Medical',
   'Shared With me',
   'Professional',
+  'Certificate',
 ];
 
 export default function DashboardView({ files }: DashboardViewProps) {
@@ -46,6 +47,7 @@ function getCategoryColor(category: string): string {
     'Medical': '#06b6d4',         // light blue
     'Shared With me': '#10b981',  // green
     'Professional': '#1e40af',     // dark blue
+    'Certificate': '#8b5cf6',     // purple
   };
   return colorMap[category] || '#6b7280';
 }

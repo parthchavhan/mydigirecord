@@ -2,13 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Folder, File, FolderPlus, LogOut, ChevronRight, Home, Upload, Search, Filter, Trash2, MoreVertical, Edit, Info, X, Eye, Copy, Clipboard } from 'lucide-react';
+import { Folder, File, FolderPlus, LogOut, ChevronRight, Home, Upload, Search, Filter, Trash2, MoreVertical, Edit, Info, X, Eye, Copy, Clipboard, Move, Share2, CheckSquare, Square } from 'lucide-react';
 import Link from 'next/link';
 import { logout, getAuth } from '@/app/actions/auth';
 import { getCompany } from '@/app/actions/company';
 import { getFolderWithChildren } from '@/app/actions/dashboard';
 import { createFolder, deleteFolder, updateFolder, getFolderStats, getFoldersByCompany } from '@/app/actions/folder';
-import { deleteFile, updateFile, getFilesByCompany, copyFile, getFileById } from '@/app/actions/file';
+import { deleteFile, updateFile, getFilesByCompany, copyFile, getFileById, moveFile } from '@/app/actions/file';
+import { globalSearch } from '@/app/actions/search';
 import toast from 'react-hot-toast';
 import AddFileModal from './components/AddFileModal';
 import { createFile } from '@/app/actions/file';
@@ -49,6 +50,13 @@ export default function DocumentsPage() {
   const [showEditDetailsModal, setShowEditDetailsModal] = useState(false);
   const [editingFileDetails, setEditingFileDetails] = useState<any | null>(null);
   const [fileDetails, setFileDetails] = useState<any | null>(null);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [isGlobalSearch, setIsGlobalSearch] = useState(false);
+  const [globalSearchResults, setGlobalSearchResults] = useState<any[]>([]);
+  const [movedFile, setMovedFile] = useState<any | null>(null);
+  const [showMoveModal, setShowMoveModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [fileToShare, setFileToShare] = useState<any | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -89,22 +97,65 @@ export default function DocumentsPage() {
   }, [router]);
 
   useEffect(() => {
-    let filtered = currentItems;
+    const performSearch = async () => {
+      if (searchTerm && searchTerm.trim().length > 0 && company) {
+        setIsGlobalSearch(true);
+        try {
+          const result = await globalSearch(company.id, searchTerm.trim());
+        if (result.success) {
+          setGlobalSearchResults(result.results || []);
+          } else {
+            console.error('Search error:', result.error);
+            setGlobalSearchResults([]);
+          }
+        } catch (error) {
+          console.error('Search failed:', error);
+          setIsGlobalSearch(false);
+          setGlobalSearchResults([]);
+        }
+      } else {
+        setIsGlobalSearch(false);
+        setGlobalSearchResults([]);
+      }
+    };
 
-    if (searchTerm) {
-      filtered = filtered.filter((item) =>
-        item.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+    // Debounce search
+    const timeoutId = setTimeout(() => {
+    if (searchTerm && searchTerm.trim().length > 2) {
+      performSearch();
+    } else {
+      setIsGlobalSearch(false);
+      setGlobalSearchResults([]);
     }
+    }, 300);
 
-    if (filterType === 'folders') {
-      filtered = filtered.filter((item) => 'other_folders' in item || 'parentId' in item);
-    } else if (filterType === 'files') {
-      filtered = filtered.filter((item) => !('other_folders' in item) && !('parentId' in item));
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, company]);
+
+  useEffect(() => {
+    if (isGlobalSearch) {
+      let filtered = globalSearchResults;
+      if (filterType === 'folders') {
+        filtered = filtered.filter((item) => item.type === 'folder');
+      } else if (filterType === 'files') {
+        filtered = filtered.filter((item) => item.type === 'file');
+      }
+      setFilteredItems(filtered);
+    } else {
+      let filtered = currentItems;
+      if (searchTerm) {
+        filtered = filtered.filter((item) =>
+          item.name.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      }
+      if (filterType === 'folders') {
+        filtered = filtered.filter((item) => 'other_folders' in item || 'parentId' in item);
+      } else if (filterType === 'files') {
+        filtered = filtered.filter((item) => !('other_folders' in item) && !('parentId' in item));
+      }
+      setFilteredItems(filtered);
     }
-
-    setFilteredItems(filtered);
-  }, [currentItems, searchTerm, filterType]);
+  }, [currentItems, searchTerm, filterType, isGlobalSearch, globalSearchResults]);
 
   const navigateToFolder = async (folderId: string) => {
     if (!company) return;
@@ -234,7 +285,7 @@ export default function DocumentsPage() {
   };
 
   const handleDeleteFile = async (fileId: string, fileName: string) => {
-    if (!confirm(`Are you sure you want to delete "${fileName}"? It will be moved to bin and permanently deleted after 5 days.`)) {
+    if (!confirm(`Are you sure you want to delete "${fileName}"? It will be moved to bin and permanently deleted after 30 days.`)) {
       return;
     }
 
@@ -327,11 +378,124 @@ export default function DocumentsPage() {
     }
   };
 
+  const handleMoveFile = (file: any) => {
+    if (!('other_folders' in file || 'parentId' in file)) {
+      setMovedFile(file);
+      setShowMoveModal(true);
+      loadAvailableFolders();
+      setOpenMenuId(null);
+    }
+  };
+
+  const handleMoveFileConfirm = async (targetFolderId: string) => {
+    if (!movedFile) return;
+    const result = await moveFile(movedFile.id, targetFolderId);
+    if (result.success) {
+      toast.success('File moved successfully!');
+      setMovedFile(null);
+      setShowMoveModal(false);
+      refreshView();
+    } else {
+      toast.error(result.error || 'Failed to move file');
+    }
+  };
+
+  const handleShareFile = (file: any) => {
+    if (!('other_folders' in file || 'parentId' in file)) {
+      setFileToShare(file);
+      setShowShareModal(true);
+      setOpenMenuId(null);
+    }
+  };
+
+  const toggleSelectItem = (itemId: string) => {
+    const newSelected = new Set(selectedItems);
+    if (newSelected.has(itemId)) {
+      newSelected.delete(itemId);
+    } else {
+      newSelected.add(itemId);
+    }
+    setSelectedItems(newSelected);
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedItems.size === 0) return;
+    if (!confirm(`Are you sure you want to delete ${selectedItems.size} item(s)?`)) return;
+
+    const itemsToDelete = Array.from(selectedItems);
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const itemId of itemsToDelete) {
+      const item = currentItems.find(i => i.id === itemId);
+      if (!item) continue;
+      
+      const isFolder = 'other_folders' in item || 'parentId' in item;
+      const result = isFolder 
+        ? await deleteFolder(itemId)
+        : await deleteFile(itemId, false);
+      
+      if (result.success) {
+        successCount++;
+      } else {
+        failCount++;
+      }
+    }
+
+    if (successCount > 0) {
+      toast.success(`${successCount} item(s) deleted successfully`);
+    }
+    if (failCount > 0) {
+      toast.error(`${failCount} item(s) failed to delete`);
+    }
+    
+    setSelectedItems(new Set());
+    refreshView();
+  };
+
+  const handleBulkCopy = async () => {
+    if (selectedItems.size === 0 || !currentFolderId) {
+      toast.error('Please select files and navigate to a folder to paste them.');
+      return;
+    }
+
+    const filesToCopy = Array.from(selectedItems)
+      .map(id => currentItems.find(item => item.id === id))
+      .filter(item => item && !('other_folders' in item || 'parentId' in item));
+
+    if (filesToCopy.length === 0) {
+      toast.error('Please select files to copy.');
+      return;
+    }
+
+    let successCount = 0;
+    for (const file of filesToCopy) {
+      const result = await copyFile(file.id, currentFolderId);
+      if (result.success) successCount++;
+    }
+
+    toast.success(`${successCount} file(s) copied successfully!`);
+    setSelectedItems(new Set());
+    refreshView();
+  };
+
   const loadAvailableFolders = async () => {
     if (!company) return;
+    try {
     const result = await getFoldersByCompany(company.id);
     if (result.success) {
-      setAvailableFolders(result.folders || []);
+        // Exclude the current folder from the list
+        const filteredFolders = (result.folders || []).filter(
+          (folder: any) => folder.id !== currentFolderId
+        );
+        setAvailableFolders(filteredFolders);
+      } else {
+        console.error('Failed to load folders:', result.error);
+        setAvailableFolders([]);
+      }
+    } catch (error) {
+      console.error('Error loading folders:', error);
+      setAvailableFolders([]);
     }
   };
 
@@ -387,21 +551,21 @@ export default function DocumentsPage() {
   return (
     <div className="flex-1 flex flex-col">
         <header className="bg-white shadow-sm border-b">
-          <div className="px-4 sm:px-6 lg:px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <File className="w-8 h-8 text-[#9f1d35]" />
+          <div className="px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <File className="w-6 h-6 sm:w-8 sm:h-8 text-[#9f1d35] flex-shrink-0" />
                 <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Documents</h1>
-                  <p className="text-sm text-gray-500">{documentCount} {documentCount === 1 ? 'document' : 'documents'}</p>
+                  <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Documents</h1>
+                  <p className="text-xs sm:text-sm text-gray-500">{documentCount} {documentCount === 1 ? 'document' : 'documents'}</p>
                 </div>
               </div>
-              <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-3 w-full sm:w-auto">
                 <button
                   onClick={handleLogout}
-                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100"
+                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-100 text-sm sm:text-base w-full sm:w-auto justify-center sm:justify-start"
                 >
-                  <LogOut className="w-5 h-5" />
+                  <LogOut className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>Logout</span>
                 </button>
               </div>
@@ -409,9 +573,9 @@ export default function DocumentsPage() {
           </div>
         </header>
 
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8">
-          <div className="bg-white rounded-lg shadow mb-6 p-4">
-            <div className="flex items-center space-x-2 flex-wrap">
+        <main className="flex-1 px-3 sm:px-4 md:px-6 lg:px-8 py-4 sm:py-6 md:py-8">
+          <div className="bg-white rounded-lg shadow mb-4 sm:mb-6 p-3 sm:p-4">
+            <div className="flex items-center space-x-1 sm:space-x-2 flex-wrap gap-y-1">
               {currentPath.map((item, index) => (
                 <div key={item.id} className="flex items-center">
                   {index > 0 && <ChevronRight className="w-4 h-4 text-gray-400 mx-2" />}
@@ -431,32 +595,63 @@ export default function DocumentsPage() {
             </div>
           </div>
 
+          {selectedItems.size > 0 && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <span className="text-blue-800 font-medium text-sm sm:text-base">{selectedItems.size} item(s) selected</span>
+              <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+                {currentFolderId !== null && (
+                  <button
+                    onClick={handleBulkCopy}
+                    className="flex items-center space-x-2 bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 text-sm sm:text-base"
+                  >
+                    <Copy className="w-4 h-4" />
+                    <span>Copy Selected</span>
+                  </button>
+                )}
+                <button
+                  onClick={handleBulkDelete}
+                  className="flex items-center space-x-2 bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 text-sm sm:text-base"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  <span>Delete Selected</span>
+                </button>
+                <button
+                  onClick={() => setSelectedItems(new Set())}
+                  className="flex items-center space-x-2 bg-gray-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-700 text-sm sm:text-base"
+                >
+                  <X className="w-4 h-4" />
+                  <span>Clear Selection</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="flex space-x-3">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setShowFolderModal(true)}
-                className="flex items-center space-x-2 bg-[#9f1d35] text-white px-4 py-2 rounded-lg hover:bg-[#8a1a2e]"
+                className="flex items-center space-x-2 bg-[#9f1d35] text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-[#8a1a2e] text-sm sm:text-base"
               >
-                <FolderPlus className="w-5 h-5" />
-                <span>New Folder</span>
+                <FolderPlus className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="whitespace-nowrap">New Folder</span>
               </button>
               {currentFolderId !== null && (
                 <>
                   <button
                     onClick={() => setShowFileModal(true)}
-                    className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                    className="flex items-center space-x-2 bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 text-sm sm:text-base"
                   >
-                    <Upload className="w-5 h-5" />
-                    <span>Upload Document</span>
+                    <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
+                    <span className="whitespace-nowrap">Upload Document</span>
                   </button>
                   {copiedFile && (
                     <button
                       onClick={handlePasteFileClick}
-                      className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+                      className="flex items-center space-x-2 bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 text-sm sm:text-base"
                       title={`Paste "${copiedFile.name}"`}
                     >
-                      <Clipboard className="w-5 h-5" />
-                      <span>Paste</span>
+                      <Clipboard className="w-4 h-4 sm:w-5 sm:h-5" />
+                      <span className="whitespace-nowrap">Paste</span>
                     </button>
                   )}
                 </>
@@ -511,46 +706,61 @@ export default function DocumentsPage() {
               )}
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
               {filteredItems.map((item) => {
                 const isFolder = 'other_folders' in item || 'parentId' in item;
                 return (
                     <div
                       key={item.id}
-                      className={`bg-white rounded-lg shadow p-4 transition-all relative ${
+                      className={`bg-white rounded-lg shadow p-4 sm:p-5 transition-all relative ${
                         isFolder ? 'hover:shadow-lg hover:border-[#9f1d35] border-2 border-transparent' : ''
-                      }`}
+                      } ${selectedItems.has(item.id) ? 'ring-2 ring-[#9f1d35]' : ''}`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div
-                          onClick={() => {
-                            if (isFolder) {
-                              navigateToFolder(item.id);
-                            } else {
-                              handleViewFile(item);
-                            }
-                          }}
-                          className={`flex items-center space-x-3 flex-1 min-w-0 ${isFolder || !isFolder ? 'cursor-pointer' : ''}`}
-                        >
-                        {isFolder ? (
-                          <Folder className="w-8 h-8 text-[#9f1d35]" />
-                        ) : (
-                          <File className="w-8 h-8 text-gray-600" />
-                        )}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
-                          <p className="text-xs text-gray-500">
-                            {new Date(item.createdAt).toLocaleDateString()}
-                          </p>
+                      <div className="flex items-center justify-between gap-3 sm:gap-4">
+                        <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleSelectItem(item.id);
+                            }}
+                            className="p-1.5 hover:bg-gray-100 rounded flex-shrink-0 transition-colors"
+                          >
+                            {selectedItems.has(item.id) ? (
+                              <CheckSquare className="w-5 h-5 sm:w-6 sm:h-6 text-[#9f1d35]" />
+                            ) : (
+                              <Square className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
+                            )}
+                          </button>
+                          <div
+                            onClick={() => {
+                              if (isFolder) {
+                                navigateToFolder(item.id);
+                              } else {
+                                handleViewFile(item);
+                              }
+                            }}
+                            className={`flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0 cursor-pointer group`}
+                          >
+                            {isFolder ? (
+                              <Folder className="w-8 h-8 sm:w-10 sm:h-10 text-[#9f1d35] flex-shrink-0 group-hover:scale-110 transition-transform" />
+                            ) : (
+                              <File className="w-8 h-8 sm:w-10 sm:h-10 text-gray-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
+                            )}
+                            <div className="flex-1 min-w-0 space-y-1">
+                              <p className="text-sm sm:text-base font-medium text-gray-900 truncate group-hover:text-[#9f1d35] transition-colors">{item.name}</p>
+                              <p className="text-xs sm:text-sm text-gray-500">
+                                {new Date(item.createdAt || item.data?.createdAt).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="relative">
+                        <div className="relative flex-shrink-0 ml-2">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             setOpenMenuId(openMenuId === item.id ? null : item.id);
                           }}
-                          className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                            className="p-1.5 sm:p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
                           title="More options"
                         >
                           <MoreVertical className="w-4 h-4" />
@@ -561,7 +771,7 @@ export default function DocumentsPage() {
                               className="fixed inset-0 z-10"
                               onClick={() => setOpenMenuId(null)}
                             />
-                            <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+                            <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20 max-h-[80vh] overflow-y-auto">
                               {!isFolder && (
                                 <>
                                   <button
@@ -593,6 +803,26 @@ export default function DocumentsPage() {
                                   >
                                     <Copy className="w-4 h-4" />
                                     <span>Copy</span>
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleMoveFile(item);
+                                    }}
+                                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                  >
+                                    <Move className="w-4 h-4" />
+                                    <span>Move</span>
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleShareFile(item);
+                                    }}
+                                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                                  >
+                                    <Share2 className="w-4 h-4" />
+                                    <span>Share</span>
                                   </button>
                                 </>
                               )}
@@ -927,6 +1157,123 @@ export default function DocumentsPage() {
             refreshView();
           }}
         />
+
+        {/* Move File Modal */}
+        {showMoveModal && movedFile && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            onClick={() => {
+              setShowMoveModal(false);
+              setMovedFile(null);
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold text-gray-900">Move File</h3>
+                <button
+                  onClick={() => {
+                    setShowMoveModal(false);
+                    setMovedFile(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mb-4">Select destination folder for "{movedFile.name}"</p>
+              {availableFolders.length > 0 ? (
+              <div className="space-y-2 max-h-60 overflow-y-auto mb-4">
+                {availableFolders.map((folder) => (
+                  <button
+                    key={folder.id}
+                    onClick={() => handleMoveFileConfirm(folder.id)}
+                      className="w-full text-left px-4 py-2 hover:bg-gray-100 rounded-lg flex items-center space-x-2 transition-colors"
+                  >
+                      <Folder className="w-4 h-4 text-[#9f1d35] flex-shrink-0" />
+                      <span className="truncate">{folder.name}</span>
+                  </button>
+                ))}
+              </div>
+              ) : (
+                <div className="text-center py-8">
+                  <Folder className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No folders available</p>
+                  <p className="text-xs text-gray-400 mt-1">Create a folder first to move files</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Share File Modal */}
+        {showShareModal && fileToShare && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+            onClick={() => {
+              setShowShareModal(false);
+              setFileToShare(null);
+            }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-xl font-semibold text-gray-900">Share File</h3>
+                <button
+                  onClick={() => {
+                    setShowShareModal(false);
+                    setFileToShare(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+              <p className="text-sm text-gray-600 mb-4">Share "{fileToShare.name}"</p>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Share Link
+                  </label>
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      readOnly
+                      value={fileToShare.url || ''}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-gray-50"
+                    />
+                    <button
+                      onClick={() => {
+                        if (fileToShare.url) {
+                          navigator.clipboard.writeText(fileToShare.url);
+                          toast.success('Link copied to clipboard!');
+                        }
+                      }}
+                      className="px-4 py-2 bg-[#9f1d35] text-white rounded-lg hover:bg-[#8a1a2e]"
+                    >
+                      Copy
+                    </button>
+                  </div>
+                </div>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowShareModal(false);
+                      setFileToShare(null);
+                    }}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

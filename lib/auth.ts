@@ -1,7 +1,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 
 const SECRET_KEY = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'mydigirecord-secret-key-change-in-production'
+  process.env.JWT_SECRET || 'mendorabox-secret-key-change-in-production'
 );
 
 export interface JWTPayload {

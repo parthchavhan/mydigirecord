@@ -101,80 +101,80 @@ export default function CompanyDetailPage() {
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2 sm:space-x-4 min-w-0 flex-1">
               <Link
                 href="/admin/dashboard"
-                className="text-gray-600 hover:text-gray-900"
+                className="text-gray-600 hover:text-gray-900 flex-shrink-0"
               >
-                <ArrowLeft className="w-6 h-6" />
+                <ArrowLeft className="w-5 h-5 sm:w-6 sm:h-6" />
               </Link>
-              <div className="flex items-center space-x-3">
-                <Building2 className="w-8 h-8 text-[#9f1d35]" />
-                <h1 className="text-2xl font-bold text-gray-900">{company.name}</h1>
+              <div className="flex items-center space-x-2 sm:space-x-3 min-w-0 flex-1">
+                <Building2 className="w-6 h-6 sm:w-8 sm:h-8 text-[#9f1d35] flex-shrink-0" />
+                <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 truncate">{company.name}</h1>
               </div>
             </div>
           </div>
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
         {/* Summary Cards */}
-        <div className="grid md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm text-gray-600">Total Users</p>
-              <Users className="w-5 h-5 text-[#9f1d35] opacity-50" />
+              <p className="text-xs sm:text-sm text-gray-600">Total Users</p>
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-[#9f1d35] opacity-50 flex-shrink-0" />
             </div>
-            <p className="text-3xl font-bold text-gray-900">{userStats.length}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{userStats.length}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm text-gray-600">Total Files</p>
-              <File className="w-5 h-5 text-blue-500 opacity-50" />
+              <p className="text-xs sm:text-sm text-gray-600">Total Files</p>
+              <File className="w-4 h-4 sm:w-5 sm:h-5 text-blue-500 opacity-50 flex-shrink-0" />
             </div>
-            <p className="text-3xl font-bold text-gray-900">{totalFiles}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{totalFiles}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm text-gray-600">Total Folders</p>
-              <Folder className="w-5 h-5 text-[#9f1d35] opacity-50" />
+              <p className="text-xs sm:text-sm text-gray-600">Total Folders</p>
+              <Folder className="w-4 h-4 sm:w-5 sm:h-5 text-[#9f1d35] opacity-50 flex-shrink-0" />
             </div>
-            <p className="text-3xl font-bold text-gray-900">{totalFolders}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900">{totalFolders}</p>
           </div>
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-4 sm:p-6">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm text-gray-600">Total Storage</p>
-              <HardDrive className="w-5 h-5 text-gray-500 opacity-50" />
+              <p className="text-xs sm:text-sm text-gray-600">Total Storage</p>
+              <HardDrive className="w-4 h-4 sm:w-5 sm:h-5 text-gray-500 opacity-50 flex-shrink-0" />
             </div>
-            <p className="text-3xl font-bold text-gray-900">{formatStorage(totalStorage)}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-gray-900 break-words">{formatStorage(totalStorage)}</p>
           </div>
         </div>
 
         {/* User Statistics Table */}
         <div className="bg-white rounded-lg shadow">
-          <div className="p-6 border-b">
+          <div className="p-4 sm:p-6 border-b">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">User Statistics</h2>
-                <p className="text-sm text-gray-600 mt-1">Files & Folders Created by Users</p>
+                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">User Statistics</h2>
+                <p className="text-xs sm:text-sm text-gray-600 mt-1">Files & Folders Created by Users</p>
               </div>
-              <div className="flex flex-col sm:flex-row gap-3">
+              <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                 {/* Search */}
-                <div className="relative">
+                <div className="relative w-full sm:w-auto sm:min-w-[200px]">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <input
                     type="text"
                     placeholder="Search users..."
                     value={userSearchTerm}
                     onChange={(e) => setUserSearchTerm(e.target.value)}
-                    className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9f1d35] focus:border-transparent text-sm"
+                    className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9f1d35] focus:border-transparent text-sm"
                   />
                 </div>
                 {/* Filter */}
                 <select
                   value={filterBy}
                   onChange={(e) => setFilterBy(e.target.value as any)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9f1d35] focus:border-transparent text-sm"
+                  className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9f1d35] focus:border-transparent text-sm"
                 >
                   <option value="all">All Users</option>
                   <option value="files">With Files</option>
@@ -185,72 +185,117 @@ export default function CompanyDetailPage() {
             </div>
           </div>
           {userStats.length === 0 ? (
-            <div className="p-12 text-center">
-              <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-600">No users found for this company</p>
-          </div>
+            <div className="p-8 sm:p-12 text-center">
+              <Users className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
+              <p className="text-sm sm:text-base text-gray-600">No users found for this company</p>
+            </div>
           ) : filteredUserStats.length === 0 ? (
-            <div className="p-12 text-center">
-              <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No users found matching your search/filter criteria</p>
+            <div className="p-8 sm:p-12 text-center">
+              <Users className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
+              <p className="text-sm sm:text-base text-gray-600">No users found matching your search/filter criteria</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      User Name
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Files Created
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Folders Created
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Storage Used
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredUserStats.map((stat: any) => (
-                    <tr key={stat.userId} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <Users className="w-5 h-5 text-gray-400 mr-2" />
-                          <span className="text-sm font-medium text-gray-900">{stat.userName}</span>
+            <>
+              {/* Mobile Card View */}
+              <div className="block md:hidden divide-y divide-gray-200">
+                {filteredUserStats.map((stat: any) => (
+                  <div key={stat.userId} className="p-4 hover:bg-gray-50">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center space-x-2 min-w-0 flex-1">
+                          <Users className="w-5 h-5 text-gray-400 flex-shrink-0" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-900 truncate">{stat.userName}</p>
+                            <p className="text-xs text-gray-500 truncate">{stat.userEmail}</p>
+                          </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {stat.userEmail}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm text-gray-900">
-                          <File className="w-4 h-4 text-blue-500 mr-2" />
-                          <span className="font-semibold">{stat.fileCount}</span>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3 pt-2 border-t border-gray-100">
+                        <div className="text-center">
+                          <div className="flex items-center justify-center mb-1">
+                            <File className="w-4 h-4 text-blue-500 mr-1" />
+                            <span className="text-xs text-gray-600">Files</span>
+                          </div>
+                          <p className="text-sm font-semibold text-gray-900">{stat.fileCount}</p>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm text-gray-900">
-                          <Folder className="w-4 h-4 text-[#9f1d35] mr-2" />
-                          <span className="font-semibold">{stat.folderCount}</span>
+                        <div className="text-center">
+                          <div className="flex items-center justify-center mb-1">
+                            <Folder className="w-4 h-4 text-[#9f1d35] mr-1" />
+                            <span className="text-xs text-gray-600">Folders</span>
+                          </div>
+                          <p className="text-sm font-semibold text-gray-900">{stat.folderCount}</p>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center text-sm text-gray-900">
-                          <HardDrive className="w-4 h-4 text-gray-500 mr-2" />
-                          <span className="font-semibold">{formatStorage(stat.totalStorage)}</span>
+                        <div className="text-center">
+                          <div className="flex items-center justify-center mb-1">
+                            <HardDrive className="w-4 h-4 text-gray-500 mr-1" />
+                            <span className="text-xs text-gray-600">Storage</span>
+                          </div>
+                          <p className="text-xs font-semibold text-gray-900 break-words">{formatStorage(stat.totalStorage)}</p>
                         </div>
-                      </td>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        User Name
+                      </th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Email
+                      </th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Files Created
+                      </th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Folders Created
+                      </th>
+                      <th className="px-4 lg:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Storage Used
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredUserStats.map((stat: any) => (
+                      <tr key={stat.userId} className="hover:bg-gray-50">
+                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            <Users className="w-5 h-5 text-gray-400 mr-2 flex-shrink-0" />
+                            <span className="text-sm font-medium text-gray-900">{stat.userName}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                          {stat.userEmail}
+                        </td>
+                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center text-sm text-gray-900">
+                            <File className="w-4 h-4 text-blue-500 mr-2 flex-shrink-0" />
+                            <span className="font-semibold">{stat.fileCount}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center text-sm text-gray-900">
+                            <Folder className="w-4 h-4 text-[#9f1d35] mr-2 flex-shrink-0" />
+                            <span className="font-semibold">{stat.folderCount}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 lg:px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center text-sm text-gray-900">
+                            <HardDrive className="w-4 h-4 text-gray-500 mr-2 flex-shrink-0" />
+                            <span className="font-semibold">{formatStorage(stat.totalStorage)}</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </main>

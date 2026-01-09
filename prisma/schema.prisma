@@ -15,6 +15,7 @@ model companies {
   folders   folders[]
   payments  payments[]
   users     users[]
+  auditLogs auditLogs[]
 }
 
 model files {
@@ -47,6 +48,8 @@ model folders {
   updatedAt     DateTime
   userId        String?
   deletedAt     DateTime?
+  isLocked      Boolean   @default(false)
+  password      String?
   files         files[]
   companies     companies @relation(fields: [companyId], references: [id], onDelete: Cascade)
   folders       folders?  @relation("foldersTofolders", fields: [parentId], references: [id], onDelete: Cascade)
@@ -73,12 +76,32 @@ model users {
   password  String
   name      String
   companyId String
+  role      String     @default("employee") // super_admin, admin, employee
   createdAt DateTime   @default(now())
   updatedAt DateTime
   files     files[]
   folders   folders[]
   payments  payments[]
   companies companies  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  auditLogs auditLogs[]
 
   @@unique([email, companyId])
+}
+
+model auditLogs {
+  id          String    @id
+  action      String    // create, delete, update, move, copy, share
+  entityType  String    // file, folder
+  entityId    String
+  entityName  String
+  userId      String?
+  companyId   String
+  details     String?   // JSON string for additional details
+  createdAt   DateTime  @default(now())
+  users       users?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  companies   companies @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([userId])
+  @@index([createdAt])
 }

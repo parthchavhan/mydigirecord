@@ -3,43 +3,27 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { User, Building2, ArrowLeft, Mail, Lock } from 'lucide-react';
+import { User, ArrowLeft, Mail, Lock } from 'lucide-react';
 import Link from 'next/link';
-import { getCompanies } from '@/app/actions/company';
 import { userLogin } from '@/app/actions/auth';
 import toast from 'react-hot-toast';
 
 export default function UserLogin() {
   const router = useRouter();
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [selectedCompany, setSelectedCompany] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const loadCompanies = async () => {
-      const result = await getCompanies();
-      if (result.success) {
-        setCompanies(result.companies || []);
-      }
-    };
-    loadCompanies();
-  }, []);
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedCompany) {
-      toast.error('Please select a company');
-      return;
-    }
     if (!email || !password) {
       toast.error('Please enter email and password');
       return;
     }
 
     setLoading(true);
-    const result = await userLogin(email, password, selectedCompany);
+    // Find user by email first to get companyId
+    const result = await userLogin(email, password);
     setLoading(false);
     
     if (result.success) {
@@ -80,29 +64,7 @@ export default function UserLogin() {
           <form onSubmit={handleLogin} className="space-y-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Company
-              </label>
-              <div className="relative">
-                <Building2 className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                <select
-                  value={selectedCompany}
-                  onChange={(e) => setSelectedCompany(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9f1d35] focus:border-transparent appearance-none bg-white"
-                  required
-                >
-                  <option value="">Choose a company...</option>
-                  {companies.map((company) => (
-                    <option key={company.id} value={company.id}>
-                      {company.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email / ID
+                Email
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
@@ -111,7 +73,7 @@ export default function UserLogin() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9f1d35] focus:border-transparent"
-                  placeholder="Enter your email or ID"
+                  placeholder="Enter your email"
                   required
                 />
               </div>
@@ -134,19 +96,11 @@ export default function UserLogin() {
               </div>
             </div>
 
-            {companies.length === 0 && (
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p className="text-sm text-yellow-800">
-                  No companies available. Please ask an admin to create a company first.
-                </p>
-              </div>
-            )}
-
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               type="submit"
-              disabled={!selectedCompany || companies.length === 0 || loading}
+              disabled={!email || !password || loading}
               className="w-full bg-[#9f1d35] text-white py-3 rounded-lg font-semibold hover:bg-[#8a1a2e] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {loading ? 'Logging in...' : 'Login'}

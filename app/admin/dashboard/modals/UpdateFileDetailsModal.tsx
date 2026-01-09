@@ -124,6 +124,7 @@ export default function UpdateFileDetailsModal({
             <option value="Medical">Medical</option>
             <option value="Professional">Professional</option>
             <option value="Shared With me">Shared With me</option>
+            <option value="Certificate">Certificate</option>
           </select>
         </FormField>
 

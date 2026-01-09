@@ -6,7 +6,7 @@ import  prisma  from '@/lib/prisma';
 import { redirect } from 'next/navigation';
 
 export async function adminLogin(email: string, password: string) {
-  if (email === 'admin@mydigirecord.com' && password === 'admin123') {
+  if (email === 'admin@mendorabox.com' && password === 'admin123') {
     const token = await signToken({
       userId: 'admin',
       role: 'admin',
@@ -25,22 +25,12 @@ export async function adminLogin(email: string, password: string) {
   return { success: false, error: 'Invalid credentials' };
 }
 
-export async function userLogin(email: string, password: string, companyId: string) {
+export async function userLogin(email: string, password: string) {
   try {
-    const company = await prisma.companies.findUnique({
-      where: { id: companyId },
-    });
-
-    if (!company) {
-      return { success: false, error: 'Company not found' };
-    }
-
-    const user = await prisma.users.findUnique({
+    // Find user by email (since email should be unique across companies or we'll take the first match)
+    const user = await prisma.users.findFirst({
       where: {
-        email_companyId: {
-          email,
-          companyId,
-        },
+        email,
       },
     });
 
@@ -48,10 +38,16 @@ export async function userLogin(email: string, password: string, companyId: stri
       return { success: false, error: 'Invalid email or password' };
     }
 
+    // Determine role based on user's role field
+    let role = 'user';
+    if (user.role === 'super_admin' || user.role === 'admin') {
+      role = user.role;
+    }
+
     const token = await signToken({
       userId: user.id,
-      role: 'user',
-      companyId,
+      role: role as any,
+      companyId: user.companyId,
     });
 
     (await cookies()).set('auth-token', token, {

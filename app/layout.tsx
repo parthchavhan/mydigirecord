@@ -12,7 +12,7 @@ import { ourFileRouter } from "@/app/api/uploadthing/core";
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'MyDigiRecord - Document Management System',
+  title: 'MendoraBox - Document Management System',
   description: 'Simple document management system with admin and user panels',
 };
 

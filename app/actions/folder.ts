@@ -4,10 +4,30 @@ import  prisma  from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { getAuth } from './auth';
 import { UTApi } from 'uploadthing/server';
+import { createAuditLog } from './audit';
 
-export async function createFolder(name: string, companyId: string, parentId: string | null = null) {
+export async function createFolder(name: string, companyId: string, parentId: string | null = null, isLocked: boolean = false, password?: string) {
   try {
     const auth = await getAuth();
+    if (!auth || !auth.companyId || auth.companyId !== companyId) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    // Only admins and super_admins can create folders
+    if (auth.role !== 'admin' && auth.role !== 'super_admin' && auth.userId !== 'admin') {
+      // Check if user is admin in database
+      if (auth.userId && auth.userId !== 'admin') {
+        const user = await prisma.users.findUnique({
+          where: { id: auth.userId },
+        });
+        if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+          return { success: false, error: 'Only admins can create folders' };
+        }
+      } else {
+        return { success: false, error: 'Only admins can create folders' };
+      }
+    }
+
     // Set userId to null for admin users since they don't have a User record in the database
     const userId = auth?.role === 'admin' || auth?.userId === 'admin' ? null : (auth?.userId || null);
     const folder = await prisma.folders.create({
@@ -17,6 +37,8 @@ export async function createFolder(name: string, companyId: string, parentId: st
         companyId,
         parentId,
         userId,
+        isLocked: isLocked || false,
+        password: password || null,
         updatedAt: new Date(),
       },
       include: {
@@ -24,12 +46,130 @@ export async function createFolder(name: string, companyId: string, parentId: st
         files: true,
       },
     });
+
+    await createAuditLog('create', 'folder', folder.id, folder.name, { parentId, isLocked });
+
     revalidatePath('/admin/dashboard');
     revalidatePath('/user/dashboard');
     return { success: true, folder };
   } catch (error) {
     console.error('Error creating folder:', error);
     return { success: false, error: 'Failed to create folder' };
+  }
+}
+
+export async function lockFolder(folderId: string, password: string) {
+  try {
+    const auth = await getAuth();
+    if (!auth) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    // Only admins can lock folders
+    if (auth.userId && auth.userId !== 'admin') {
+      const user = await prisma.users.findUnique({
+        where: { id: auth.userId },
+      });
+      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+        return { success: false, error: 'Only admins can lock folders' };
+      }
+    }
+
+    const folder = await prisma.folders.update({
+      where: { id: folderId },
+      data: {
+        isLocked: true,
+        password,
+        updatedAt: new Date(),
+      },
+    });
+
+    await createAuditLog('update', 'folder', folder.id, folder.name, { action: 'lock' });
+
+    revalidatePath('/admin/dashboard');
+    revalidatePath('/user/dashboard');
+    return { success: true, folder };
+  } catch (error) {
+    console.error('Error locking folder:', error);
+    return { success: false, error: 'Failed to lock folder' };
+  }
+}
+
+export async function unlockFolder(folderId: string, password: string) {
+  try {
+    const auth = await getAuth();
+    if (!auth) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    const folder = await prisma.folders.findUnique({
+      where: { id: folderId },
+    });
+
+    if (!folder) {
+      return { success: false, error: 'Folder not found' };
+    }
+
+    if (!folder.isLocked) {
+      return { success: false, error: 'Folder is not locked' };
+    }
+
+    if (folder.password !== password) {
+      return { success: false, error: 'Incorrect password' };
+    }
+
+    // Only admins can unlock folders
+    if (auth.userId && auth.userId !== 'admin') {
+      const user = await prisma.users.findUnique({
+        where: { id: auth.userId },
+      });
+      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+        return { success: false, error: 'Only admins can unlock folders' };
+      }
+    }
+
+    const updatedFolder = await prisma.folders.update({
+      where: { id: folderId },
+      data: {
+        isLocked: false,
+        password: null,
+        updatedAt: new Date(),
+      },
+    });
+
+    await createAuditLog('update', 'folder', folder.id, folder.name, { action: 'unlock' });
+
+    revalidatePath('/admin/dashboard');
+    revalidatePath('/user/dashboard');
+    return { success: true, folder: updatedFolder };
+  } catch (error) {
+    console.error('Error unlocking folder:', error);
+    return { success: false, error: 'Failed to unlock folder' };
+  }
+}
+
+export async function verifyFolderPassword(folderId: string, password: string) {
+  try {
+    const folder = await prisma.folders.findUnique({
+      where: { id: folderId },
+    });
+
+    if (!folder) {
+      return { success: false, error: 'Folder not found' };
+    }
+
+    if (!folder.isLocked) {
+      return { success: true, verified: true };
+    }
+
+    if (folder.password === password) {
+      return { success: true, verified: true };
+    }
+
+    return { success: true, verified: false };
+  } catch (error) {
+    console.error('Error verifying folder password:', error);
+    return { success: false, error: 'Failed to verify password' };
   }
 }
 
@@ -55,16 +195,32 @@ export async function getFolderById(id: string) {
   }
 }
 
-export async function getFoldersByCompany(companyId: string, parentId: string | null = null) {
+export async function getFoldersByCompany(companyId: string, parentId: string | null = null, includeLocked: boolean = false) {
   try {
+    const auth = await getAuth();
+    const isAdmin = auth?.role === 'admin' || auth?.userId === 'admin' || 
+      (auth?.userId && auth.userId !== 'admin' ? (await prisma.users.findUnique({ where: { id: auth.userId } }))?.role === 'admin' || (await prisma.users.findUnique({ where: { id: auth.userId } }))?.role === 'super_admin' : false);
+
+    const where: any = {
+      companyId,
+      parentId,
+      deletedAt: null,
+    };
+
+    // If not admin and not including locked, exclude locked folders
+    if (!isAdmin && !includeLocked) {
+      where.isLocked = false;
+    }
+
     const folders = await prisma.folders.findMany({
-      where: {
-        companyId,
-        parentId,
-      },
+      where,
       include: {
         other_folders: true,
-        files: true,
+        files: {
+          where: {
+            deletedAt: null,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -112,6 +268,16 @@ export async function getFolderTree(companyId: string, folderId: string) {
 
 export async function deleteFolder(id: string) {
   try {
+    const auth = await getAuth();
+    const folder = await prisma.folders.findUnique({
+      where: { id },
+    });
+
+    if (!folder) {
+      return { success: false, error: 'Folder not found' };
+    }
+
+    await createAuditLog('delete', 'folder', folder.id, folder.name);
     // First, get all files in this folder and nested folders before deletion
     const getAllFilesInFolder = async (folderId: string): Promise<string[]> => {
       const folder = await prisma.folders.findUnique({
@@ -180,6 +346,7 @@ export async function updateFolder(id: string, name: string) {
       where: { id },
       data: { name, updatedAt: new Date() },
     });
+    await createAuditLog('update', 'folder', folder.id, folder.name, { action: 'rename' });
     revalidatePath('/admin/dashboard');
     revalidatePath('/user/dashboard');
     return { success: true, folder };

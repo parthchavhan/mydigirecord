@@ -3,13 +3,15 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import { FileText, User, Menu, X } from 'lucide-react';
+import { User, Menu, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Logo from '@/components/Logo';
 
 export default function Navbar() {
   const pathname = usePathname();
   const isLanding = pathname === '/';
-  const isDashboard = pathname?.startsWith('/admin/dashboard') || pathname?.startsWith('/user/dashboard');
+  // Hide navbar on all admin and user dashboard pages (except login)
+  const isDashboard = (pathname?.startsWith('/admin/') || pathname?.startsWith('/user/')) && pathname !== '/user/login' && pathname !== '/admin/login';
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -49,20 +51,16 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 lg:h-20">
-          <Link href="/" className="flex items-center space-x-3 group">
-            <motion.div
-              whileHover={{ scale: 1.05, rotate: 5 }}
-              className="w-10 h-10 bg-[#9f1d35] rounded-lg flex items-center justify-center shadow-lg group-hover:shadow-xl transition-shadow"
-            >
-              <FileText className="w-6 h-6 text-white" />
-            </motion.div>
-            <span className="text-xl font-bold text-gray-900 group-hover:text-[#9f1d35] transition-colors">
-              MyDigiRecord
-            </span>
+          <Link href="/" className="group">
+            <Logo 
+              variant="default" 
+              size="md" 
+              className="text-[#9f1d35] group-hover:text-[#b82d4a] transition-colors"
+            />
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden lg:flex items-center space-x-8">
             {navLinks.map((link) => (
               <button
                 key={link.id}
@@ -82,24 +80,18 @@ export default function Navbar() {
             </Link>
           </div>
 
-          {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center space-x-4">
+          {/* Mobile Menu Button - Only show on mobile/tablet */}
+          <div className="lg:hidden flex items-center space-x-4">
             {isLanding && (
               <Link
                 href="/user/login"
                 className="inline-flex items-center space-x-1 bg-[#9f1d35] text-white px-4 py-2 rounded-lg text-sm font-semibold"
               >
                 <User className="w-4 h-4" />
-                <span>Login</span>
+                <span className="hidden sm:inline">Login</span>
               </Link>
             )}
-            <button
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-              className="p-2 text-gray-700 hover:text-[#9f1d35] transition-colors"
-              aria-label="Toggle menu"
-            >
-              {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-            </button>
+           
           </div>
         </div>
       </div>
@@ -111,7 +103,7 @@ export default function Navbar() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-white border-t border-gray-200"
+            className="lg:hidden bg-white border-t border-gray-200"
           >
             <div className="px-4 py-4 space-y-3">
               {navLinks.map((link) => (

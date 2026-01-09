@@ -68,7 +68,7 @@ export default function AdminLogin() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9f1d35] focus:border-transparent"
-                  placeholder="admin@mydigirecord.com"
+                  placeholder="admin@mendorabox.com"
                   required
                 />
               </div>

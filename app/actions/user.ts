@@ -3,8 +3,21 @@
 import  prisma  from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
-export async function createUser(name: string, email: string, password: string, companyId: string) {
+export async function createUser(name: string, email: string, password: string, companyId: string, role: string = 'employee') {
   try {
+    const { getAuth } = await import('./auth');
+    const auth = await getAuth();
+    
+    // Only super_admin can create admins, admins can create employees
+    if (role === 'admin' || role === 'super_admin') {
+      if (auth?.role !== 'admin' && auth?.userId !== 'admin') {
+        const user = auth?.userId ? await prisma.users.findUnique({ where: { id: auth.userId } }) : null;
+        if (!user || user.role !== 'super_admin') {
+          return { success: false, error: 'Only super admins can create admin accounts' };
+        }
+      }
+    }
+
     const existingUser = await prisma.users.findUnique({
       where: {
         email_companyId: {
@@ -25,6 +38,7 @@ export async function createUser(name: string, email: string, password: string, 
         email,
         password,
         companyId,
+        role: role || 'employee',
         updatedAt: new Date(),
       },
     });

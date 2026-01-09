@@ -2,11 +2,13 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { FileText, Mail, Github, Linkedin, MapPin } from 'lucide-react';
+import { Mail, Github, Linkedin, MapPin } from 'lucide-react';
+import Logo from '@/components/Logo';
 
 export default function Footer() {
   const pathname = usePathname();
-  const isDashboard = pathname?.startsWith('/admin/dashboard') || pathname?.startsWith('/user/dashboard');
+  // Hide footer on all admin and user dashboard pages (except login)
+  const isDashboard = (pathname?.startsWith('/admin/') || pathname?.startsWith('/user/')) && pathname !== '/user/login' && pathname !== '/admin/login';
   
   if (isDashboard) {
     return null;
@@ -17,11 +19,8 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           {/* Brand */}
           <div className="col-span-1 md:col-span-2">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 bg-[#9f1d35] rounded-lg flex items-center justify-center">
-                <FileText className="w-6 h-6 text-white" />
-              </div>
-              <span className="text-xl font-bold text-white">MyDigiRecord</span>
+            <div className="mb-4">
+              <Logo variant="default" size="md" className="text-white" />
             </div>
             <p className="text-gray-400 mb-4 max-w-md">
               An innovative AI-powered document management platform offering secure, emotionally intelligent digital solutions
@@ -74,9 +73,9 @@ export default function Footer() {
             <h3 className="text-white font-semibold mb-4">Contact & Support</h3>
             <ul className="space-y-2">
               <li>
-                <a href="mailto:hello@mydigirecord.com" className="hover:text-white transition-colors flex items-center space-x-2">
+                <a href="mailto:hello@mendorabox.com" className="hover:text-white transition-colors flex items-center space-x-2">
                   <Mail className="w-4 h-4" />
-                  <span>hello@mydigirecord.com</span>
+                  <span>hello@mendorabox.com</span>
                 </a>
               </li>
               <li className="flex items-start space-x-2 text-gray-400">
@@ -98,7 +97,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-gray-800 mt-8 pt-8 text-center text-sm text-gray-400">
-          <p>&copy; {new Date().getFullYear()} MyDigiRecord. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} MendoraBox. All rights reserved.</p>
         </div>
       </div>
     </footer>

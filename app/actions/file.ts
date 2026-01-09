@@ -4,6 +4,7 @@ import  prisma  from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { getAuth } from './auth';
 import { UTApi } from 'uploadthing/server';
+import { createAuditLog } from './audit';
 
 export async function createFile(
   name: string,
@@ -38,6 +39,7 @@ export async function createFile(
         updatedAt: new Date(),
       },
     });
+    await createAuditLog('create', 'file', file.id, file.name, { folderId, category });
     revalidatePath('/user/dashboard');
     revalidatePath('/admin/dashboard');
     return { success: true, file };
@@ -97,6 +99,7 @@ export async function deleteFile(id: string, permanent: boolean = false) {
       });
     }
 
+    await createAuditLog('delete', 'file', id, file.name, { permanent });
     revalidatePath('/user/dashboard');
     revalidatePath('/admin/dashboard');
     revalidatePath('/user/bin');
@@ -155,12 +158,45 @@ export async function copyFile(id: string, targetFolderId: string) {
       },
     });
 
+    await createAuditLog('copy', 'file', newFile.id, newFile.name, { sourceFileId: id, targetFolderId });
     revalidatePath('/user/dashboard');
     revalidatePath('/admin/dashboard');
     return { success: true, file: newFile };
   } catch (error) {
     console.error('Error copying file:', error);
     return { success: false, error: 'Failed to copy file' };
+  }
+}
+
+export async function moveFile(id: string, targetFolderId: string) {
+  try {
+    const file = await prisma.files.findUnique({
+      where: { id },
+    });
+
+    if (!file) {
+      return { success: false, error: 'File not found' };
+    }
+
+    if (file.folderId === targetFolderId) {
+      return { success: false, error: 'File is already in this folder' };
+    }
+
+    const updatedFile = await prisma.files.update({
+      where: { id },
+      data: {
+        folderId: targetFolderId,
+        updatedAt: new Date(),
+      },
+    });
+
+    await createAuditLog('move', 'file', updatedFile.id, updatedFile.name, { sourceFolderId: file.folderId, targetFolderId });
+    revalidatePath('/user/dashboard');
+    revalidatePath('/admin/dashboard');
+    return { success: true, file: updatedFile };
+  } catch (error) {
+    console.error('Error moving file:', error);
+    return { success: false, error: 'Failed to move file' };
   }
 }
 
@@ -205,13 +241,13 @@ export async function getDeletedFiles(companyId?: string) {
 
 export async function permanentlyDeleteOldFiles() {
   try {
-    const fiveDaysAgo = new Date();
-    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
     const oldDeletedFiles = await prisma.files.findMany({
       where: {
         deletedAt: {
-          lte: fiveDaysAgo,
+          lte: thirtyDaysAgo,
         },
       },
     });
@@ -247,6 +283,7 @@ export async function updateFile(id: string, name: string) {
       where: { id },
       data: { name, updatedAt: new Date() },
     });
+    await createAuditLog('update', 'file', file.id, file.name, { action: 'rename' });
     revalidatePath('/user/dashboard');
     revalidatePath('/admin/dashboard');
     return { success: true, file };
@@ -283,6 +320,7 @@ export async function updateFileDetails(
       where: { id },
       data: updateData,
     });
+    await createAuditLog('update', 'file', file.id, file.name, { action: 'update_details', details: data });
     revalidatePath('/user/dashboard');
     revalidatePath('/admin/dashboard');
     return { success: true, file };
@@ -382,12 +420,41 @@ export async function getAllFiles() {
 
 export async function getFilesByCompany(companyId: string) {
   try {
+    const auth = await getAuth();
+    const isAdmin = auth?.role === 'admin' || auth?.userId === 'admin' || 
+      (auth?.userId && auth.userId !== 'admin' ? (await prisma.users.findUnique({ where: { id: auth.userId } }))?.role === 'admin' || (await prisma.users.findUnique({ where: { id: auth.userId } }))?.role === 'super_admin' : false);
+
+    // First, get all folder IDs for this company
+    const folderWhere: any = {
+      companyId,
+      deletedAt: null,
+    };
+
+    // If not admin, exclude locked folders
+    if (!isAdmin) {
+      folderWhere.isLocked = false;
+    }
+
+    const folders = await prisma.folders.findMany({
+      where: folderWhere,
+      select: {
+        id: true,
+      },
+    });
+
+    const folderIds = folders.map(f => f.id);
+
+    if (folderIds.length === 0) {
+      return { success: true, files: [] };
+    }
+
+    // Now get all files in these folders
     const files = await prisma.files.findMany({
       where: {
-        folders: {
-          companyId,
+        folderId: {
+          in: folderIds,
         },
-        deletedAt: null, // Exclude deleted files
+        deletedAt: null,
       },
       include: {
         folders: true,
@@ -397,6 +464,7 @@ export async function getFilesByCompany(companyId: string) {
         createdAt: 'desc',
       },
     });
+
     // Map plural relation names to singular for compatibility
     const mappedFiles = files.map(file => ({
       ...file,

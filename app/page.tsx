@@ -46,7 +46,7 @@ export default function Home() {
               transition={{ delay: 0.3 }}
               className="text-xl text-gray-600 max-w-3xl mx-auto mb-12"
             >
-              MyDigiRecord is an innovative AI-powered document management platform that offers secure, emotionally
+              MendoraBox is an innovative AI-powered document management platform that offers secure, emotionally
               intelligent digital solutions for businesses, individuals, and families. Organize, access, and share important
               personal documents—from identity proofs and insurance papers to school certificates and property records.
             </motion.p>
@@ -314,7 +314,7 @@ export default function Home() {
                 Loved by <span className="text-[#9f1d35]">Thousands</span>
               </h2>
               <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-                See what our users are saying about MyDigiRecord
+                See what our users are saying about MendoraBox
               </p>
             </div>
             <div className="grid md:grid-cols-3 gap-8">
@@ -325,7 +325,7 @@ export default function Home() {
                   ))}
                 </div>
                 <p className="text-gray-700 mb-6 italic">
-                  "MyDigiRecord has transformed how I manage my family's documents. The expiry alerts are a lifesaver, and I love how easy it is to share important files with my spouse."
+                  "MendoraBox has transformed how I manage my family's documents. The expiry alerts are a lifesaver, and I love how easy it is to share important files with my spouse."
                 </p>
                 <div className="flex items-center space-x-3">
                   <div className="w-12 h-12 bg-[#9f1d35]/10 rounded-full flex items-center justify-center">
@@ -398,7 +398,7 @@ export default function Home() {
 
             <div className="max-w-4xl mx-auto space-y-6 text-gray-700">
               <p className="text-lg leading-relaxed">
-                Your data is yours—and we treat it that way. At MyDigiRecord, privacy isn't a feature. It's a foundation.
+                Your data is yours—and we treat it that way. At MendoraBox, privacy isn't a feature. It's a foundation.
               </p>
               
               <div className="grid md:grid-cols-2 gap-6 mt-8">
@@ -441,7 +441,7 @@ export default function Home() {
               </p>
               
               <p className="text-lg font-medium text-gray-900 mt-4">
-                MyDigiRecord is your digital sanctuary. Safe, transparent, and built for trust.
+                MendoraBox is your digital sanctuary. Safe, transparent, and built for trust.
               </p>
             </div>
           </motion.div>
@@ -456,7 +456,7 @@ export default function Home() {
           >
             <div className="text-center mb-12">
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-                Why Choose <span className="text-[#9f1d35]">MyDigiRecord</span>
+                Why Choose <span className="text-[#9f1d35]">MendoraBox</span>
               </h2>
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -497,7 +497,7 @@ export default function Home() {
               </div>
               <h2 className="text-4xl font-bold text-gray-900 mb-4">Contact</h2>
               <p className="text-xl text-gray-600">
-                We'd love to hear from you—whether you're exploring MyDigiRecord for personal use, business onboarding, or partnership opportunities.
+                We'd love to hear from you—whether you're exploring MendoraBox for personal use, business onboarding, or partnership opportunities.
               </p>
             </div>
 
@@ -508,8 +508,8 @@ export default function Home() {
                   <div className="space-y-4">
                     <div className="flex items-center justify-center space-x-3">
                       <Mail className="w-6 h-6 text-[#9f1d35]" />
-                      <a href="mailto:hello@mydigirecord.com" className="text-lg text-gray-700 hover:text-[#9f1d35] transition-colors">
-                        hello@mydigirecord.com
+                      <a href="mailto:hello@mendorabox.com" className="text-lg text-gray-700 hover:text-[#9f1d35] transition-colors">
+                        hello@mendorabox.com
                       </a>
                     </div>
                     <div className="flex items-center justify-center space-x-3">
@@ -541,7 +541,7 @@ export default function Home() {
               We're not just a vault—we're your digital recordkeeper. Our mission is to empower you with tools that feel personal, secure, and transparent.
             </p>
             <p className="text-base mb-8 opacity-80 italic">
-              MyDigiRecord is proudly built in India, with global standards of security and user experience. We're here to simplify your digital life—one record at a time.
+              MendoraBox is proudly built in India, with global standards of security and user experience. We're here to simplify your digital life—one record at a time.
             </p>
             <Link href="/user/login">
               <motion.button

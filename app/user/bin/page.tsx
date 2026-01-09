@@ -70,7 +70,7 @@ export default function BinPage() {
     const now = new Date();
     const diffTime = now.getTime() - deleted.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    return Math.max(0, 5 - diffDays);
+    return Math.max(0, 30 - diffDays);
   };
 
   return (
@@ -83,7 +83,7 @@ export default function BinPage() {
                 <span>Bin</span>
               </h1>
               <p className="text-gray-600 mt-2">
-                Files will be permanently deleted after 5 days
+                Files will be permanently deleted after 30 days
               </p>
             </div>
           </div>
@@ -98,7 +98,7 @@ export default function BinPage() {
                 <Trash2 className="w-20 h-20 text-gray-300 mx-auto mb-4" />
                 <h3 className="text-xl font-semibold text-gray-700 mb-2">Bin is empty</h3>
                 <p className="text-gray-500 max-w-md">
-                  Deleted files will appear here. Files are automatically permanently deleted after 5 days.
+                  Deleted files will appear here. Files are automatically permanently deleted after 30 days.
                 </p>
               </div>
             </div>
