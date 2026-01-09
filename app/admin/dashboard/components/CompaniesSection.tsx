@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Building2, FolderPlus, Plus, Search, Eye, UserPlus, Trash2, MoreVertical, Edit, Info, Users } from 'lucide-react';
+import { Building2, FolderPlus, Plus, Search, Eye, UserPlus, Trash2, MoreVertical, Edit, Info, Users, Lock, Unlock } from 'lucide-react';
 import Link from 'next/link';
 import type { Company } from '../types';
 
@@ -20,6 +20,8 @@ interface CompaniesSectionProps {
   onEditFolder: (folder: any) => void;
   onShowFolderInfo: (folder: any) => void;
   onDeleteFolder: (id: string, name: string) => void;
+  onLockFolder?: (folder: any) => void;
+  onUnlockFolder?: (folder: any) => void;
   openFolderMenuId: string | null;
   setOpenFolderMenuId: (id: string | null) => void;
 }
@@ -38,6 +40,8 @@ export default function CompaniesSection({
   onEditFolder,
   onShowFolderInfo,
   onDeleteFolder,
+  onLockFolder,
+  onUnlockFolder,
   openFolderMenuId,
   setOpenFolderMenuId,
 }: CompaniesSectionProps) {
@@ -144,6 +148,9 @@ export default function CompaniesSection({
                       <div className="flex items-center space-x-2 flex-1 min-w-0">
                         <FolderPlus className="w-4 h-4 text-gray-400" />
                         <span className="text-gray-700 truncate">{folder.name}</span>
+                        {folder.isLocked && (
+                          <Lock className="w-3 h-3 text-orange-500 flex-shrink-0" title="Locked folder" />
+                        )}
                       </div>
                       <div className="relative">
                         <button
@@ -183,6 +190,33 @@ export default function CompaniesSection({
                                 <Edit className="w-4 h-4" />
                                 <span>Edit Name</span>
                               </button>
+                              {folder.isLocked ? (
+                                onUnlockFolder && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onUnlockFolder(folder);
+                                    }}
+                                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-orange-600 hover:bg-orange-50"
+                                  >
+                                    <Unlock className="w-4 h-4" />
+                                    <span>Unlock Folder</span>
+                                  </button>
+                                )
+                              ) : (
+                                onLockFolder && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onLockFolder(folder);
+                                    }}
+                                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
+                                  >
+                                    <Lock className="w-4 h-4" />
+                                    <span>Lock Folder</span>
+                                  </button>
+                                )
+                              )}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();

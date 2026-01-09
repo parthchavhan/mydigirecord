@@ -2,12 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Folder, File, FolderPlus, LogOut, ChevronRight, Home, Upload, Search, Filter, Trash2, MoreVertical, Edit, Info, X, Eye, Copy, Clipboard, Move, Share2, CheckSquare, Square } from 'lucide-react';
+import { Folder, File, FolderPlus, LogOut, ChevronRight, Home, Upload, Search, Filter, Trash2, MoreVertical, Edit, Info, X, Eye, Copy, Clipboard, Move, Share2, CheckSquare, Square, Lock, Unlock } from 'lucide-react';
 import Link from 'next/link';
 import { logout, getAuth } from '@/app/actions/auth';
 import { getCompany } from '@/app/actions/company';
 import { getFolderWithChildren } from '@/app/actions/dashboard';
-import { createFolder, deleteFolder, updateFolder, getFolderStats, getFoldersByCompany } from '@/app/actions/folder';
+import { createFolder, deleteFolder, updateFolder, getFolderStats, getFoldersByCompany, lockFolder, unlockFolder } from '@/app/actions/folder';
 import { deleteFile, updateFile, getFilesByCompany, copyFile, getFileById, moveFile } from '@/app/actions/file';
 import { globalSearch } from '@/app/actions/search';
 import toast from 'react-hot-toast';
@@ -15,6 +15,11 @@ import AddFileModal from './components/AddFileModal';
 import { createFile } from '@/app/actions/file';
 import DocumentViewerModal from '../../admin/dashboard/modals/DocumentViewerModal';
 import EditFileDetailsModal from './components/EditFileDetailsModal';
+import LockFolderModal from '../../admin/dashboard/modals/LockFolderModal';
+import UnlockFolderModal from '../../admin/dashboard/modals/UnlockFolderModal';
+import FolderPasswordModal from './components/FolderPasswordModal';
+import { checkIsAdmin } from '@/app/actions/auth';
+import { verifyFolderPassword } from '@/app/actions/folder';
 
 interface BreadcrumbItem {
   id: string;
@@ -57,12 +62,22 @@ export default function DocumentsPage() {
   const [showMoveModal, setShowMoveModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [fileToShare, setFileToShare] = useState<any | null>(null);
+  const [lockingFolder, setLockingFolder] = useState<any | null>(null);
+  const [unlockingFolder, setUnlockingFolder] = useState<any | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [passwordPromptFolder, setPasswordPromptFolder] = useState<any | null>(null);
+  // Store verified folders with their passwords: Map<folderId, password>
+  const [verifiedFolders, setVerifiedFolders] = useState<Map<string, string>>(new Map());
+  // Track unlocked folders with their unlock timestamps (for auto-lock after 5 minutes)
+  const [unlockedFolders, setUnlockedFolders] = useState<Map<string, { unlockTime: number; password: string }>>(new Map());
 
   useEffect(() => {
     const loadData = async () => {
       try {
         const auth = await getAuth();
-        if (!auth || auth.role !== 'user' || !auth.companyId) {
+        // Allow users with any role (user, admin, super_admin) to access documents
+        // But exclude the main admin account (userId === 'admin')
+        if (!auth || !auth.companyId || auth.userId === 'admin') {
           router.push('/user/login');
           return;
         }
@@ -88,6 +103,10 @@ export default function DocumentsPage() {
           setAllFiles(filesResult.files || []);
           setDocumentCount(filesResult.files?.length || 0);
         }
+
+        // Check if user is admin
+        const adminCheck = await checkIsAdmin();
+        setIsAdmin(adminCheck.success && adminCheck.isAdmin);
       } catch (error) {
         console.error('Error loading documents:', error);
         router.push('/user/login');
@@ -160,9 +179,54 @@ export default function DocumentsPage() {
   const navigateToFolder = async (folderId: string) => {
     if (!company) return;
 
-    const result = await getFolderWithChildren(folderId, company.id);
+    // Check if folder is locked and not yet verified
+    const folderItem = currentItems.find(item => {
+      const isFolder = 'other_folders' in item || 'parentId' in item;
+      return isFolder && item.id === folderId;
+    });
+
+    // Get password if folder is already verified
+    const verifiedPassword = verifiedFolders.get(folderId);
+    
+    if (folderItem && folderItem.isLocked && !verifiedPassword) {
+      // Show password prompt
+      setPasswordPromptFolder(folderItem);
+      return;
+    }
+
+    // Pass password if folder is verified
+    const result = await getFolderWithChildren(folderId, company.id, verifiedPassword);
+    
+    // If password is required and no folder returned, show password prompt
+    if (result.requiresPassword && !result.folder) {
+      const folder = folderItem || { id: folderId, name: 'Folder' };
+      setPasswordPromptFolder(folder);
+      return;
+    }
+    
+    // If password is required but folder structure is returned (nested folders visible)
+    if (result.requiresPassword && result.folder) {
+      // Show nested folders (they are visible) but still require password for full access
+      const folder = result.folder;
+      const newPath: BreadcrumbItem[] = [...currentPath, { id: folder.id, name: folder.name, type: 'folder' as const }];
+      setCurrentPath(newPath);
+      
+      // Show nested folders (visible even when locked) but no files without password
+      const items: any[] = [
+        ...(folder.other_folders || []),
+        ...(folder.files || []),
+      ];
+      setCurrentItems(items);
+      setFilteredItems(items);
+      setCurrentFolderId(folder.id);
+      
+      // Don't show password prompt again if we're already showing nested folders
+      // User can click nested folders or enter password via the lock icon if needed
+      return;
+    }
+    
     if (!result.success || !result.folder) {
-      toast.error('Folder not found');
+      toast.error(result.error || 'Folder not found');
       return;
     }
 
@@ -177,6 +241,41 @@ export default function DocumentsPage() {
     setCurrentItems(items);
     setFilteredItems(items);
     setCurrentFolderId(folder.id);
+  };
+
+  const handleFolderPasswordSubmit = async (password: string) => {
+    if (!passwordPromptFolder || !company) return false;
+
+    const result = await verifyFolderPassword(passwordPromptFolder.id, password);
+    if (result.success && result.verified) {
+      // Store password for verified folder
+      setVerifiedFolders((prev: Map<string, string>) => {
+        const newMap = new Map<string, string>(prev);
+        newMap.set(passwordPromptFolder.id, password);
+        return newMap;
+      });
+      
+      // Now navigate to the folder with password
+      const folderResult = await getFolderWithChildren(passwordPromptFolder.id, company.id, password);
+      if (folderResult.success && folderResult.folder) {
+        const folder = folderResult.folder;
+        const newPath: BreadcrumbItem[] = [...currentPath, { id: folder.id, name: folder.name, type: 'folder' as const }];
+        setCurrentPath(newPath);
+        
+        const items: any[] = [
+          ...(folder.other_folders || []),
+          ...(folder.files || []),
+        ];
+        setCurrentItems(items);
+        setFilteredItems(items);
+        setCurrentFolderId(folder.id);
+        setPasswordPromptFolder(null);
+        return true;
+      }
+      return false;
+    } else {
+      return false;
+    }
   };
 
   const navigateToBreadcrumb = async (index: number) => {
@@ -196,7 +295,18 @@ export default function DocumentsPage() {
       }
     } else {
       const folderId = newPath[newPath.length - 1].id;
-      const result = await getFolderWithChildren(folderId, company.id);
+      // Get password if folder is verified
+      const verifiedPassword = verifiedFolders.get(folderId);
+      const result = await getFolderWithChildren(folderId, company.id, verifiedPassword);
+      
+      // If password is required, show password prompt
+      if (result.requiresPassword) {
+        toast.error('Password required to access this folder');
+        // Reload current view
+        refreshView();
+        return;
+      }
+      
       if (result.success && result.folder) {
         const folder = result.folder;
         const items: any[] = [
@@ -222,7 +332,26 @@ export default function DocumentsPage() {
         setFilteredItems(items);
       }
     } else {
-      const result = await getFolderWithChildren(currentFolderId, company.id);
+      // Get password if folder is verified
+      const verifiedPassword = verifiedFolders.get(currentFolderId);
+      const result = await getFolderWithChildren(currentFolderId, company.id, verifiedPassword);
+      
+      // If password is required but not available, clear the folder view
+      if (result.requiresPassword) {
+        // Go back to company root if password is required
+        const companyResult = await getCompany(company.id);
+        if (companyResult.success && companyResult.company) {
+          setCompany(companyResult.company);
+          const items = companyResult.company.folders || [];
+          setCurrentItems(items);
+          setFilteredItems(items);
+          setCurrentFolderId(null);
+          setCurrentPath([{ id: company.id, name: company.name, type: 'company' }]);
+          toast.error('Password required to access this folder');
+        }
+        return;
+      }
+      
       if (result.success && result.folder) {
         const folder = result.folder;
         const items: any[] = [
@@ -325,6 +454,101 @@ export default function DocumentsPage() {
       toast.error(result.error || `Failed to rename ${isFolder ? 'folder' : 'file'}`);
     }
   };
+
+  const handleLockFolder = (folder: any) => {
+    setLockingFolder(folder);
+    setOpenMenuId(null);
+  };
+
+  const handleUnlockFolder = (folder: any) => {
+    setUnlockingFolder(folder);
+    setOpenMenuId(null);
+  };
+
+  const handleLockFolderConfirm = async (password: string) => {
+    if (!lockingFolder) return false;
+    const result = await lockFolder(lockingFolder.id, password);
+    if (result.success) {
+      toast.success('Folder locked successfully!');
+      setLockingFolder(null);
+      refreshView();
+      return true;
+    } else {
+      toast.error(result.error || 'Failed to lock folder');
+      return false;
+    }
+  };
+
+  const handleUnlockFolderConfirm = async (password: string) => {
+    if (!unlockingFolder) return false;
+    const result = await unlockFolder(unlockingFolder.id, password);
+    if (result.success) {
+      toast.success('Folder unlocked successfully!');
+      // Track unlocked folder with timestamp
+      setUnlockedFolders(prev => {
+        const newMap = new Map(prev);
+        newMap.set(unlockingFolder.id, {
+          unlockTime: Date.now(),
+          password: password,
+        });
+        return newMap;
+      });
+      setUnlockingFolder(null);
+      refreshView();
+      return true;
+    } else {
+      toast.error(result.error || 'Failed to unlock folder');
+      return false;
+    }
+  };
+
+  const handleUnlocked = (folderId: string, password: string) => {
+    // Track unlocked folder with timestamp
+    setUnlockedFolders(prev => {
+      const newMap = new Map(prev);
+      newMap.set(folderId, {
+        unlockTime: Date.now(),
+        password: password,
+      });
+      return newMap;
+    });
+  };
+
+  // Auto-lock folders after 5 minutes
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const now = Date.now();
+      const fiveMinutes = 5 * 60 * 1000; // 5 minutes in milliseconds
+      
+      const foldersToLock: Array<{ folderId: string; password: string }> = [];
+      
+      setUnlockedFolders(prev => {
+        const newMap = new Map(prev);
+        
+        for (const [folderId, data] of prev.entries()) {
+          if (now - data.unlockTime >= fiveMinutes) {
+            foldersToLock.push({ folderId, password: data.password });
+            newMap.delete(folderId);
+          }
+        }
+        
+        return newMap;
+      });
+
+      // Lock folders that exceeded 5 minutes
+      if (foldersToLock.length > 0) {
+        for (const { folderId, password } of foldersToLock) {
+          const result = await lockFolder(folderId, password);
+          if (result.success) {
+            toast.success('Folder automatically locked after 5 minutes');
+          }
+        }
+        refreshView();
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, []);
 
   const handleShowInfo = async (item: any) => {
     setInfoItem(item);
@@ -738,12 +962,24 @@ export default function DocumentsPage() {
                             className={`flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0 cursor-pointer group`}
                           >
                             {isFolder ? (
-                              <Folder className="w-8 h-8 sm:w-10 sm:h-10 text-[#9f1d35] flex-shrink-0 group-hover:scale-110 transition-transform" />
+                              <div className="relative">
+                                <Folder className="w-8 h-8 sm:w-10 sm:h-10 text-[#9f1d35] flex-shrink-0 group-hover:scale-110 transition-transform" />
+                                {item.isLocked && (
+                                  <Lock className="w-3 h-3 sm:w-4 sm:h-4 absolute -top-1 -right-1 bg-yellow-500 text-white rounded-full p-0.5" />
+                                )}
+                              </div>
                             ) : (
                               <File className="w-8 h-8 sm:w-10 sm:h-10 text-gray-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
                             )}
                             <div className="flex-1 min-w-0 space-y-1">
-                              <p className="text-sm sm:text-base font-medium text-gray-900 truncate group-hover:text-[#9f1d35] transition-colors">{item.name}</p>
+                              <div className="flex items-center gap-1">
+                                <p className="text-sm sm:text-base font-medium text-gray-900 truncate group-hover:text-[#9f1d35] transition-colors">{item.name}</p>
+                                {isFolder && item.isLocked && (
+                                  <span title="Locked folder - password required">
+                                    <Lock className="w-3 h-3 text-yellow-600 flex-shrink-0" />
+                                  </span>
+                                )}
+                              </div>
                               <p className="text-xs sm:text-sm text-gray-500">
                                 {new Date(item.createdAt || item.data?.createdAt).toLocaleDateString()}
                               </p>
@@ -842,6 +1078,31 @@ export default function DocumentsPage() {
                                 <Edit className="w-4 h-4" />
                                 <span>Edit Name</span>
                               </button>
+                              {isFolder && isAdmin && (
+                                item.isLocked ? (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleUnlockFolder(item);
+                                    }}
+                                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-orange-600 hover:bg-orange-50"
+                                  >
+                                    <Unlock className="w-4 h-4" />
+                                    <span>Unlock Folder</span>
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleLockFolder(item);
+                                    }}
+                                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
+                                  >
+                                    <Lock className="w-4 h-4" />
+                                    <span>Lock Folder</span>
+                                  </button>
+                                )
+                              )}
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
@@ -1202,6 +1463,37 @@ export default function DocumentsPage() {
               )}
             </div>
           </div>
+        )}
+
+        {/* Lock Folder Modal */}
+        {lockingFolder && (
+          <LockFolderModal
+            isOpen={true}
+            onClose={() => setLockingFolder(null)}
+            folder={lockingFolder}
+            onSubmit={handleLockFolderConfirm}
+          />
+        )}
+
+        {/* Unlock Folder Modal */}
+        {unlockingFolder && (
+          <UnlockFolderModal
+            isOpen={true}
+            onClose={() => setUnlockingFolder(null)}
+            folder={unlockingFolder}
+            onSubmit={handleUnlockFolderConfirm}
+            onUnlocked={handleUnlocked}
+          />
+        )}
+
+        {/* Folder Password Prompt Modal */}
+        {passwordPromptFolder && (
+          <FolderPasswordModal
+            isOpen={true}
+            onClose={() => setPasswordPromptFolder(null)}
+            folderName={passwordPromptFolder.name}
+            onSubmit={handleFolderPasswordSubmit}
+          />
         )}
 
         {/* Share File Modal */}

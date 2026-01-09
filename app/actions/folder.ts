@@ -66,12 +66,15 @@ export async function lockFolder(folderId: string, password: string) {
     }
 
     // Only admins can lock folders
-    if (auth.userId && auth.userId !== 'admin') {
-      const user = await prisma.users.findUnique({
-        where: { id: auth.userId },
-      });
-      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-        return { success: false, error: 'Only admins can lock folders' };
+    // Allow main admin account (userId === 'admin') or users with admin/super_admin role
+    if (auth.userId !== 'admin') {
+      if (auth.role !== 'admin' && auth.role !== 'super_admin') {
+        const user = await prisma.users.findUnique({
+          where: { id: auth.userId },
+        });
+        if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+          return { success: false, error: 'Only admins can lock folders' };
+        }
       }
     }
 
@@ -119,12 +122,15 @@ export async function unlockFolder(folderId: string, password: string) {
     }
 
     // Only admins can unlock folders
-    if (auth.userId && auth.userId !== 'admin') {
-      const user = await prisma.users.findUnique({
-        where: { id: auth.userId },
-      });
-      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-        return { success: false, error: 'Only admins can unlock folders' };
+    // Allow main admin account (userId === 'admin') or users with admin/super_admin role
+    if (auth.userId !== 'admin') {
+      if (auth.role !== 'admin' && auth.role !== 'super_admin') {
+        const user = await prisma.users.findUnique({
+          where: { id: auth.userId },
+        });
+        if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+          return { success: false, error: 'Only admins can unlock folders' };
+        }
       }
     }
 
@@ -132,7 +138,7 @@ export async function unlockFolder(folderId: string, password: string) {
       where: { id: folderId },
       data: {
         isLocked: false,
-        password: null,
+        // Keep password when unlocking so it can be displayed with show/hide toggle
         updatedAt: new Date(),
       },
     });

@@ -119,3 +119,22 @@ export async function checkIsAdmin() {
     return { success: false, isAdmin: false };
   }
 }
+
+export async function checkIsSuperAdmin() {
+  try {
+    const auth = await getAuth();
+    if (!auth) {
+      return { success: false, isSuperAdmin: false };
+    }
+
+    // Super admin is only the main admin account (never logs in as user)
+    if (auth.userId === 'admin') {
+      return { success: true, isSuperAdmin: true };
+    }
+
+    return { success: true, isSuperAdmin: false };
+  } catch (error) {
+    console.error('Error checking super admin status:', error);
+    return { success: false, isSuperAdmin: false };
+  }
+}

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import { createCompany, deleteCompany } from '@/app/actions/company';
-import { createFolder, deleteFolder, updateFolder, getFolderStats } from '@/app/actions/folder';
+import { createFolder, deleteFolder, updateFolder, getFolderStats, lockFolder, unlockFolder } from '@/app/actions/folder';
 import { createUser, getUsersByCompany, deleteUser, updateUser, updateUserRole } from '@/app/actions/user';
 import { getFoldersByCompany } from '@/app/actions/folder';
 import type { Company, Folder } from '../types';
@@ -22,6 +22,10 @@ export function useCompanyHandlers(
   const [folderStats, setFolderStats] = useState<any | null>(null);
   const [availableFolders, setAvailableFolders] = useState<Folder[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  const [lockingFolder, setLockingFolder] = useState<Folder | null>(null);
+  const [unlockingFolder, setUnlockingFolder] = useState<Folder | null>(null);
+  // Track unlocked folders with their unlock timestamps (for auto-lock after 5 minutes)
+  const [unlockedFolders, setUnlockedFolders] = useState<Map<string, { unlockTime: number; password: string }>>(new Map());
 
   const handleCreateCompany = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -229,6 +233,101 @@ export function useCompanyHandlers(
     }
   };
 
+  const handleLockFolder = (folder: Folder) => {
+    setLockingFolder(folder);
+    setOpenFolderMenuId(null);
+  };
+
+  const handleUnlockFolder = (folder: Folder) => {
+    setUnlockingFolder(folder);
+    setOpenFolderMenuId(null);
+  };
+
+  const handleLockFolderConfirm = async (password: string) => {
+    if (!lockingFolder) return false;
+    const result = await lockFolder(lockingFolder.id, password);
+    if (result.success) {
+      toast.success('Folder locked successfully!');
+      setLockingFolder(null);
+      loadCompanies();
+      return true;
+    } else {
+      toast.error(result.error || 'Failed to lock folder');
+      return false;
+    }
+  };
+
+  const handleUnlockFolderConfirm = async (password: string) => {
+    if (!unlockingFolder) return false;
+    const result = await unlockFolder(unlockingFolder.id, password);
+    if (result.success) {
+      toast.success('Folder unlocked successfully!');
+      // Track unlocked folder with timestamp
+      setUnlockedFolders(prev => {
+        const newMap = new Map(prev);
+        newMap.set(unlockingFolder.id, {
+          unlockTime: Date.now(),
+          password: password,
+        });
+        return newMap;
+      });
+      setUnlockingFolder(null);
+      loadCompanies();
+      return true;
+    } else {
+      toast.error(result.error || 'Failed to unlock folder');
+      return false;
+    }
+  };
+
+  const handleUnlocked = (folderId: string, password: string) => {
+    // Track unlocked folder with timestamp
+    setUnlockedFolders(prev => {
+      const newMap = new Map(prev);
+      newMap.set(folderId, {
+        unlockTime: Date.now(),
+        password: password,
+      });
+      return newMap;
+    });
+  };
+
+  // Auto-lock folders after 5 minutes
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const now = Date.now();
+      const fiveMinutes = 5 * 60 * 1000; // 5 minutes in milliseconds
+      
+      const foldersToLock: Array<{ folderId: string; password: string }> = [];
+      
+      setUnlockedFolders(prev => {
+        const newMap = new Map(prev);
+        
+        for (const [folderId, data] of prev.entries()) {
+          if (now - data.unlockTime >= fiveMinutes) {
+            foldersToLock.push({ folderId, password: data.password });
+            newMap.delete(folderId);
+          }
+        }
+        
+        return newMap;
+      });
+
+      // Lock folders that exceeded 5 minutes
+      if (foldersToLock.length > 0) {
+        for (const { folderId, password } of foldersToLock) {
+          const result = await lockFolder(folderId, password);
+          if (result.success) {
+            toast.success('Folder automatically locked after 5 minutes');
+          }
+        }
+        loadCompanies();
+      }
+    }, 60000); // Check every minute
+
+    return () => clearInterval(interval);
+  }, [loadCompanies]);
+
   return {
     selectedCompany,
     setSelectedCompany,
@@ -268,6 +367,15 @@ export function useCompanyHandlers(
     handleDeleteUser,
     handleUpdateUser,
     handleUpdateUserRole,
+    lockingFolder,
+    setLockingFolder,
+    unlockingFolder,
+    setUnlockingFolder,
+    handleLockFolder,
+    handleUnlockFolder,
+    handleLockFolderConfirm,
+    handleUnlockFolderConfirm,
+    handleUnlocked,
   };
 }
 

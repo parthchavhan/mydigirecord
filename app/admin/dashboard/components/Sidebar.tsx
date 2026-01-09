@@ -1,6 +1,6 @@
 'use client';
 
-import { LayoutDashboard, FileText, Settings, Trash2 } from 'lucide-react';
+import { LayoutDashboard, FileText, Settings, Trash2, History } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Logo from '@/components/Logo';
@@ -15,6 +15,7 @@ export default function Sidebar({ currentPage = 'dashboard' }: SidebarProps) {
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/admin/dashboard' },
     { id: 'documents', label: 'Documents', icon: FileText, href: '/admin/documents' },
+    { id: 'history', label: 'History', icon: History, href: '/admin/history' },
     { id: 'settings', label: 'Settings', icon: Settings, href: '/admin/settings' },
     { id: 'bin', label: 'Bin', icon: Trash2, href: '/admin/bin' },
   ];

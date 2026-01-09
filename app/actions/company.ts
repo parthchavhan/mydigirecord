@@ -86,9 +86,14 @@ export async function getCompany(id: string) {
         folders: {
           where: {
             parentId: null,
+            deletedAt: null,
           },
           include: {
-            other_folders: true,
+            other_folders: {
+              where: {
+                deletedAt: null,
+              },
+            },
             files: {
               where: {
                 deletedAt: null,
@@ -98,6 +103,9 @@ export async function getCompany(id: string) {
         },
       },
     });
+    
+    // Ensure locked folders are visible to all users (they need to see them to try accessing)
+    // The isLocked field is included by default in Prisma queries
     return { success: true, company };
   } catch (error) {
     console.error('Error fetching company:', error);

@@ -27,7 +27,9 @@ export default function SettingsPage() {
     const loadUser = async () => {
       try {
         const auth = await getAuth();
-        if (!auth || auth.role !== 'user' || !auth.userId) {
+        // Allow users with any role (user, admin, super_admin) to access settings
+        // But exclude the main admin account (userId === 'admin')
+        if (!auth || !auth.userId || auth.userId === 'admin') {
           router.push('/user/login');
           return;
         }

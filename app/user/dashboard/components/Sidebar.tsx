@@ -1,16 +1,28 @@
 'use client';
 
-import { LayoutDashboard, FileText, Settings, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { LayoutDashboard, FileText, Settings, Trash2, History } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Logo from '@/components/Logo';
+import { checkIsAdmin } from '@/app/actions/auth';
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const adminCheck = await checkIsAdmin();
+      setIsAdmin(adminCheck.success && adminCheck.isAdmin);
+    };
+    checkAdmin();
+  }, []);
   
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/user/dashboard' },
     { id: 'documents', label: 'Documents', icon: FileText, href: '/user/documents' },
+    ...(isAdmin ? [{ id: 'logs', label: 'Logs', icon: History, href: '/user/logs' }] : []),
     { id: 'settings', label: 'Settings', icon: Settings, href: '/user/settings' },
     { id: 'bin', label: 'Bin', icon: Trash2, href: '/user/bin' },
   ];

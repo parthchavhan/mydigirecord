@@ -11,6 +11,9 @@ export const { GET, POST } = createRouteHandler({
   router: ourFileRouter,
 });
 
+// Increase timeout for upload operations (default is usually 60s, but metadata registration can timeout)
+export const maxDuration = 60;
+
 
 
 

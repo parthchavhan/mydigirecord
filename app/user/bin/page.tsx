@@ -17,7 +17,9 @@ export default function BinPage() {
     const loadDeletedFiles = async () => {
       try {
         const auth = await getAuth();
-        if (!auth || auth.role !== 'user' || !auth.companyId) {
+        // Allow users with any role (user, admin, super_admin) to access bin
+        // But exclude the main admin account (userId === 'admin')
+        if (!auth || !auth.companyId || auth.userId === 'admin') {
           router.push('/user/login');
           return;
         }

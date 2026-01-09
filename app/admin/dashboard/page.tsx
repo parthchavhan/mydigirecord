@@ -1,5 +1,7 @@
 'use client';
 
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAdminDashboard } from './hooks/useAdminDashboard';
 import { useCompanyHandlers } from './hooks/useCompanyHandlers';
 import { useModalState } from './hooks/useModalState';
@@ -11,8 +13,16 @@ import UserModal from './modals/UserModal';
 import EditFolderModal from './modals/EditFolderModal';
 import FolderInfoModal from './modals/FolderInfoModal';
 import ViewUsersModal from './modals/ViewUsersModal';
+import LockFolderModal from './modals/LockFolderModal';
+import UnlockFolderModal from './modals/UnlockFolderModal';
+import { getAuth, checkIsSuperAdmin } from '@/app/actions/auth';
+import toast from 'react-hot-toast';
 
 export default function AdminDashboard() {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+
+  // All hooks must be called before any conditional returns
   const {
     companies,
     filteredCompanies,
@@ -23,6 +33,44 @@ export default function AdminDashboard() {
 
   const companyHandlers = useCompanyHandlers(loadCompanies);
   const modalState = useModalState();
+
+  useEffect(() => {
+    const checkAccess = async () => {
+      try {
+        const auth = await getAuth();
+        if (!auth) {
+          router.push('/admin/login');
+          return;
+        }
+
+        // Only super admin can access admin dashboard
+        const superAdminCheck = await checkIsSuperAdmin();
+        if (!superAdminCheck.success || !superAdminCheck.isSuperAdmin) {
+          toast.error('Access denied. Super admin privileges required.');
+          router.push('/admin/login');
+          return;
+        }
+
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Error checking access:', error);
+        router.push('/admin/login');
+      }
+    };
+
+    checkAccess();
+  }, [router]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9f1d35] mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleEditFolderClick = (folder: any) => {
     if (companyHandlers.handleEditFolder(folder)) {
@@ -66,6 +114,8 @@ export default function AdminDashboard() {
           onEditFolder={handleEditFolderClick}
           onShowFolderInfo={handleShowFolderInfoClick}
           onDeleteFolder={companyHandlers.handleDeleteFolder}
+          onLockFolder={companyHandlers.handleLockFolder}
+          onUnlockFolder={companyHandlers.handleUnlockFolder}
           openFolderMenuId={companyHandlers.openFolderMenuId}
           setOpenFolderMenuId={companyHandlers.setOpenFolderMenuId}
         />
@@ -164,6 +214,25 @@ export default function AdminDashboard() {
         onUpdateUser={companyHandlers.handleUpdateUser}
         onUpdateUserRole={companyHandlers.handleUpdateUserRole}
         loadUsers={companyHandlers.loadUsers}
+      />
+
+      <LockFolderModal
+        isOpen={companyHandlers.lockingFolder !== null}
+        onClose={() => {
+          companyHandlers.setLockingFolder(null);
+        }}
+        folder={companyHandlers.lockingFolder}
+        onSubmit={companyHandlers.handleLockFolderConfirm}
+      />
+
+      <UnlockFolderModal
+        isOpen={companyHandlers.unlockingFolder !== null}
+        onClose={() => {
+          companyHandlers.setUnlockingFolder(null);
+        }}
+        folder={companyHandlers.unlockingFolder}
+        onSubmit={companyHandlers.handleUnlockFolderConfirm}
+        onUnlocked={companyHandlers.handleUnlocked}
       />
     </div>
   );
