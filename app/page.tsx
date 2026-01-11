@@ -71,13 +71,91 @@ export default function Home() {
         </section>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* About Us Section */}
+          <section id="about" className="scroll-mt-24">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+              className="mt-16 mb-20"
+            >
+              <div className="text-center mb-12">
+                <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+                  About <span className="text-[#9f1d35]">MendoraBox</span>
+                </h2>
+                <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+                  Empowering individuals, families, and businesses with intelligent document management solutions
+                </p>
+              </div>
+              
+              <div className="grid md:grid-cols-2 gap-12 items-center">
+                <motion.div
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.5 }}
+                  className="space-y-6"
+                >
+                  <p className="text-lg text-gray-700 leading-relaxed">
+                    MendoraBox was born from a simple belief: your important documents shouldn't be scattered across 
+                    multiple devices, email inboxes, or filing cabinets. We envisioned a platform that combines the 
+                    power of AI with emotional intelligence to create a document management system that truly understands 
+                    your needs.
+                  </p>
+                  <p className="text-lg text-gray-700 leading-relaxed">
+                    Whether you're managing personal identity documents, family records, business compliance files, or 
+                    legacy planning documents, MendoraBox provides a secure, organized, and intuitive solution. Our 
+                    platform is designed to grow with you—from individual use to family sharing to business collaboration.
+                  </p>
+                  <p className="text-lg text-gray-700 leading-relaxed">
+                    Built with pride in India and adhering to global security standards, we're committed to making 
+                    document management accessible, secure, and emotionally intelligent for everyone.
+                  </p>
+                </motion.div>
+                
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: 0.6 }}
+                  className="bg-gradient-to-br from-[#9f1d35]/10 to-white rounded-2xl p-8 border border-[#9f1d35]/20"
+                >
+                  <h3 className="text-2xl font-bold text-gray-900 mb-6">Our Mission</h3>
+                  <p className="text-gray-700 mb-6">
+                    To empower individuals, families, and businesses with tools that make document management 
+                    simple, secure, and stress-free. We believe that organizing your digital life shouldn't 
+                    require a technical degree—just clarity, security, and peace of mind.
+                  </p>
+                  <h3 className="text-2xl font-bold text-gray-900 mb-6 mt-8">Our Values</h3>
+                  <ul className="space-y-3 text-gray-700">
+                    <li className="flex items-start space-x-3">
+                      <Check className="w-5 h-5 text-[#9f1d35] flex-shrink-0 mt-0.5" />
+                      <span><strong>Security First:</strong> Your data's protection is our top priority</span>
+                    </li>
+                    <li className="flex items-start space-x-3">
+                      <Check className="w-5 h-5 text-[#9f1d35] flex-shrink-0 mt-0.5" />
+                      <span><strong>User-Centric:</strong> Designed with empathy and understanding</span>
+                    </li>
+                    <li className="flex items-start space-x-3">
+                      <Check className="w-5 h-5 text-[#9f1d35] flex-shrink-0 mt-0.5" />
+                      <span><strong>Transparency:</strong> Clear policies, no hidden surprises</span>
+                    </li>
+                    <li className="flex items-start space-x-3">
+                      <Check className="w-5 h-5 text-[#9f1d35] flex-shrink-0 mt-0.5" />
+                      <span><strong>Innovation:</strong> Continuously improving with AI-powered features</span>
+                    </li>
+                  </ul>
+                </motion.div>
+              </div>
+            </motion.div>
+          </section>
+
           {/* Stats Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.45 }}
-            className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 mb-20"
-          >
+          <section id="stats" className="scroll-mt-24">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.45 }}
+              className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-16 mb-20"
+            >
             <div className="bg-white/60 backdrop-blur-sm rounded-xl p-6 text-center border border-gray-200 shadow-sm">
               <div className="text-3xl font-bold text-[#9f1d35] mb-2">10K+</div>
               <div className="text-sm text-gray-600">Active Users</div>
@@ -95,9 +173,10 @@ export default function Home() {
               <div className="text-sm text-gray-600">Support</div>
             </div>
           </motion.div>
+          </section>
 
           {/* Features Grid */}
-          <section id="features" className="scroll-mt-20">
+          <section id="features" className="scroll-mt-24">
             <div className="text-center mb-12">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -213,12 +292,13 @@ export default function Home() {
           </section>
 
           {/* Use Cases Section */}
-          <motion.section
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.8 }}
-            className="mt-24"
-          >
+          <section id="use-cases" className="scroll-mt-24">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8 }}
+              className="mt-24"
+            >
             <div className="text-center mb-12">
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
                 Perfect for <span className="text-[#9f1d35]">Everyone</span>
@@ -300,15 +380,17 @@ export default function Home() {
                 </ul>
               </div>
             </div>
-          </motion.section>
+            </motion.div>
+          </section>
 
           {/* Testimonials Section */}
-          <motion.section
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.9 }}
-            className="mt-24"
-          >
+          <section id="testimonials" className="scroll-mt-24">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.9 }}
+              className="mt-24"
+            >
             <div className="text-center mb-12">
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
                 Loved by <span className="text-[#9f1d35]">Thousands</span>
@@ -378,10 +460,11 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </motion.section>
+            </motion.div>
+          </section>
 
           {/* Data Security & Privacy Section */}
-          <section id="security" className="scroll-mt-20">
+          <section id="security-privacy" className="scroll-mt-24">
             <motion.div
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
@@ -448,12 +531,13 @@ export default function Home() {
           </section>
 
           {/* Why Choose Us Section */}
-          <motion.section
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.1 }}
-            className="mt-24"
-          >
+          <section id="why-choose-us" className="scroll-mt-24">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.1 }}
+              className="mt-24"
+            >
             <div className="text-center mb-12">
               <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
                 Why Choose <span className="text-[#9f1d35]">MendoraBox</span>
@@ -481,10 +565,11 @@ export default function Home() {
                 <p className="text-sm text-gray-600">Designed with empathy</p>
               </div>
             </div>
-          </motion.section>
+            </motion.div>
+          </section>
 
           {/* Contact Section */}
-          <section id="contact" className="scroll-mt-20">
+          <section id="contact" className="scroll-mt-24">
             <motion.div
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
@@ -530,12 +615,13 @@ export default function Home() {
           </section>
 
           {/* CTA Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 1.3 }}
-            className="mt-24 bg-gradient-to-r from-[#9f1d35] to-[#b82d4a] rounded-2xl shadow-2xl p-12 text-center text-white"
-          >
+          <section id="cta" className="scroll-mt-24">
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.3 }}
+              className="mt-24 bg-gradient-to-r from-[#9f1d35] to-[#b82d4a] rounded-2xl shadow-2xl p-12 text-center text-white"
+            >
             <h2 className="text-3xl font-bold mb-4">Ready to Get Started?</h2>
             <p className="text-lg mb-8 opacity-90">
               We're not just a vault—we're your digital recordkeeper. Our mission is to empower you with tools that feel personal, secure, and transparent.
@@ -552,7 +638,8 @@ export default function Home() {
                 Get Started
               </motion.button>
             </Link>
-          </motion.div>
+            </motion.div>
+          </section>
         </div>
       </div>
     </div>
