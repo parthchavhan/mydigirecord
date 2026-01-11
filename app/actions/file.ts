@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { getAuth } from './auth';
 import { UTApi } from 'uploadthing/server';
 import { createAuditLog } from './audit';
+import { checkAndCreateExpiryNotifications } from './notification';
 
 export async function createFile(
   name: string,
@@ -40,6 +41,10 @@ export async function createFile(
       },
     });
     await createAuditLog('create', 'file', file.id, file.name, { folderId, category });
+    
+    // Check for expiry notifications after upload
+    await checkAndCreateExpiryNotifications();
+
     revalidatePath('/user/dashboard');
     revalidatePath('/admin/dashboard');
     return { success: true, file };
@@ -321,6 +326,10 @@ export async function updateFileDetails(
       data: updateData,
     });
     await createAuditLog('update', 'file', file.id, file.name, { action: 'update_details', details: data });
+
+    // Check for expiry notifications after updating details
+    await checkAndCreateExpiryNotifications();
+
     revalidatePath('/user/dashboard');
     revalidatePath('/admin/dashboard');
     return { success: true, file };

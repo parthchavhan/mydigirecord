@@ -1,7 +1,7 @@
 import { getAuth } from '@/app/actions/auth';
-import { getNotifications, markAsRead, markAllAsRead } from '@/app/actions/notification';
+import { getNotifications, markAsRead, markAllAsRead, checkAndCreateExpiryNotifications } from '@/app/actions/notification';
 import { redirect } from 'next/navigation';
-import { Bell, Check, Calendar, FileText } from 'lucide-react';
+import { Bell, Check, Calendar, FileText, RefreshCw } from 'lucide-react';
 import { revalidatePath } from 'next/cache';
 
 export default async function NotificationsPage() {
@@ -34,6 +34,13 @@ export default async function NotificationsPage() {
     }
   }
 
+  async function handleRefresh() {
+    'use server';
+    await checkAndCreateExpiryNotifications();
+    revalidatePath('/user/notifications');
+    revalidatePath('/user/dashboard');
+  }
+
   return (
     <div className="flex-1 flex flex-col h-screen overflow-hidden">
       <header className="bg-white shadow-sm border-b">
@@ -46,17 +53,29 @@ export default async function NotificationsPage() {
                 <p className="text-sm text-gray-500">Stay updated on your document status</p>
               </div>
             </div>
-            {notifications.some(n => !n.isRead) && (
-              <form action={handleMarkAllAsRead}>
+            <div className="flex items-center space-x-2">
+              <form action={handleRefresh}>
                 <button
                   type="submit"
-                  className="flex items-center space-x-2 text-[#9f1d35] hover:text-[#8a1a2e] px-4 py-2 rounded-lg hover:bg-red-50 transition-colors"
+                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                  title="Refresh notifications"
                 >
-                  <Check className="w-5 h-5" />
-                  <span>Mark all as read</span>
+                  <RefreshCw className="w-5 h-5" />
+                  <span>Check for Expiry</span>
                 </button>
               </form>
-            )}
+              {notifications.some(n => !n.isRead) && (
+                <form action={handleMarkAllAsRead}>
+                  <button
+                    type="submit"
+                    className="flex items-center space-x-2 text-[#9f1d35] hover:text-[#8a1a2e] px-4 py-2 rounded-lg hover:bg-red-50 transition-colors"
+                  >
+                    <Check className="w-5 h-5" />
+                    <span>Mark all as read</span>
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
         </div>
       </header>

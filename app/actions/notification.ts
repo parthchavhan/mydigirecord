@@ -64,56 +64,85 @@ export async function checkAndCreateExpiryNotifications() {
     const oneMonthFromNow = new Date();
     oneMonthFromNow.setMonth(oneMonthFromNow.getMonth() + 1);
 
-    // Find files that expire within the next month and haven't had a notification created yet
-    // To avoid duplicate notifications, we can use a specific pattern in the message or a new field.
-    // For now, let's just check if a notification for this file and user already exists with the same title.
-    
+    // Find all files that expire within the next month
     const expiringFiles = await prisma.files.findMany({
       where: {
         expiryDate: {
           lte: oneMonthFromNow,
           gt: new Date(),
         },
-        userId: { not: null },
+        deletedAt: null,
       },
       include: {
-        users: true,
+        folders: {
+          include: {
+            users: true, // Folder owner
+            companies: {
+              include: {
+                users: true, // All users in the company
+              },
+            },
+          },
+        },
+        users: true, // File owner
       },
     });
 
     let createdCount = 0;
 
     for (const file of expiringFiles) {
-      if (!file.userId) continue;
+      const usersToNotify = new Set<string>();
 
-      const title = 'Document Expiry Warning';
-      const message = `Your document "${file.name}" is set to expire on ${file.expiryDate?.toLocaleDateString()}. Please renew it soon.`;
+      // 1. Notify the file owner if exists
+      if (file.userId) {
+        usersToNotify.add(file.userId);
+      }
 
-      // Check if notification already exists for this file and user within the last 30 days
-      const existingNotification = await prisma.notifications.findFirst({
-        where: {
-          userId: file.userId,
-          fileId: file.id,
-          type: 'expiry',
-          createdAt: {
-            gt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
-          },
-        },
-      });
+      // 2. Notify the folder owner if exists
+      if (file.folders.userId) {
+        usersToNotify.add(file.folders.userId);
+      }
 
-      if (!existingNotification) {
-        await prisma.notifications.create({
-          data: {
-            id: crypto.randomUUID(),
-            userId: file.userId,
+      // 3. If no specific user, notify all company admins or all users if it's a user-side file
+      if (usersToNotify.size === 0) {
+        const companyUsers = file.folders.companies.users;
+        companyUsers.forEach(u => {
+          // If it's a small company or we want to be safe, notify everyone in the company
+          // Or just admins: if (u.role === 'admin' || u.role === 'super_admin' || u.role === 'employee')
+          usersToNotify.add(u.id);
+        });
+      }
+
+      for (const userId of usersToNotify) {
+        const title = 'Document Expiry Warning';
+        const message = `The document "${file.name}" is set to expire on ${file.expiryDate?.toLocaleDateString()}. Please renew it soon.`;
+
+        // Check if notification already exists for this file and user within the last 30 days
+        const existingNotification = await prisma.notifications.findFirst({
+          where: {
+            userId,
             fileId: file.id,
-            title,
-            message,
             type: 'expiry',
-            isRead: false,
+            createdAt: {
+              gt: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // Last 30 days
+            },
           },
         });
-        createdCount++;
+
+        if (!existingNotification) {
+          await prisma.notifications.create({
+            data: {
+              id: crypto.randomUUID(),
+              userId,
+              fileId: file.id,
+              title,
+              message,
+              type: 'expiry',
+              isRead: false,
+            },
+          });
+          createdCount++;
+        }
       }
     }
 
