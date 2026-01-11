@@ -56,6 +56,7 @@ export const ModelName = {
   folders: 'folders',
   payments: 'payments',
   users: 'users',
+  notifications: 'notifications',
   auditLogs: 'auditLogs'
 } as const
 
@@ -149,6 +150,21 @@ export const UsersScalarFieldEnum = {
 } as const
 
 export type UsersScalarFieldEnum = (typeof UsersScalarFieldEnum)[keyof typeof UsersScalarFieldEnum]
+
+
+export const NotificationsScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  fileId: 'fileId',
+  title: 'title',
+  message: 'message',
+  type: 'type',
+  isRead: 'isRead',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type NotificationsScalarFieldEnum = (typeof NotificationsScalarFieldEnum)[keyof typeof NotificationsScalarFieldEnum]
 
 
 export const AuditLogsScalarFieldEnum = {

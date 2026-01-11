@@ -37,6 +37,7 @@ model files {
   deletedAt    DateTime?
   folders      folders   @relation(fields: [folderId], references: [id], onDelete: Cascade)
   users        users?    @relation(fields: [userId], references: [id])
+  notifications notifications[]
 }
 
 model folders {
@@ -82,10 +83,28 @@ model users {
   files     files[]
   folders   folders[]
   payments  payments[]
+  notifications notifications[]
   companies companies  @relation(fields: [companyId], references: [id], onDelete: Cascade)
   auditLogs auditLogs[]
 
   @@unique([email, companyId])
+}
+
+model notifications {
+  id        String   @id
+  userId    String
+  fileId    String?
+  title     String
+  message   String
+  type      String   // e.g., "expiry"
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  users     users    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  files     files?   @relation(fields: [fileId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([isRead])
 }
 
 model auditLogs {
