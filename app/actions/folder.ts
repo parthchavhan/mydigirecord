@@ -226,6 +226,30 @@ export async function getFoldersByCompany(companyId: string, parentId: string | 
   }
 }
 
+export async function getAllFoldersFlat(companyId: string) {
+  try {
+    const auth = await getAuth();
+    if (!auth || !auth.companyId || auth.companyId !== companyId) {
+      return { success: false, error: 'Unauthorized' };
+    }
+
+    const folders = await prisma.folders.findMany({
+      where: {
+        companyId,
+        deletedAt: null,
+      },
+      orderBy: {
+        name: 'asc',
+      },
+    });
+
+    return { success: true, folders: JSON.parse(JSON.stringify(folders)) };
+  } catch (error) {
+    console.error('Error fetching all folders flat:', error);
+    return { success: false, error: 'Failed to fetch folders' };
+  }
+}
+
 export async function getFolderTree(companyId: string, folderId: string) {
   try {
     const folder = await prisma.folders.findUnique({

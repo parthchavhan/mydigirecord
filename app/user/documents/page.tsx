@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { logout, getAuth } from '@/app/actions/auth';
 import { getCompany } from '@/app/actions/company';
 import { getFolderWithChildren } from '@/app/actions/dashboard';
-import { createFolder, deleteFolder, updateFolder, getFolderStats, getFoldersByCompany, lockFolder, unlockFolder } from '@/app/actions/folder';
+import { createFolder, deleteFolder, updateFolder, getFolderStats, getFoldersByCompany, lockFolder, unlockFolder, getAllFoldersFlat } from '@/app/actions/folder';
 import { deleteFile, updateFile, getFilesByCompany, copyFile, getFileById, moveFile } from '@/app/actions/file';
 import { globalSearch } from '@/app/actions/search';
 import toast from 'react-hot-toast';
@@ -779,39 +779,36 @@ export default function DocumentsPage() {
   const loadAvailableFolders = async () => {
     if (!company) return;
     try {
-      // Get all top-level folders first (including locked ones)
-      const result = await getFoldersByCompany(company.id, null, true);
-    if (result.success) {
-        // Recursively flatten all nested folders
-        const flattenFolders = (folders: any[], parentPath: string = ''): any[] => {
-          const flattened: any[] = [];
-          
-          folders.forEach((folder) => {
-            // Skip current folder and the folder containing the file being moved
-            if (folder.id === currentFolderId || folder.id === movedFile?.folderId) {
-              return;
-            }
-            
-            // Build display path
-            const displayPath = parentPath ? `${parentPath} / ${folder.name}` : folder.name;
-            
-            // Add folder to list
-            flattened.push({
-              ...folder,
-              displayName: displayPath,
-            });
-            
-            // Recursively add nested folders
-            if (folder.other_folders && folder.other_folders.length > 0) {
-              flattened.push(...flattenFolders(folder.other_folders, displayPath));
-            }
-          });
-          
-          return flattened;
-        };
+      const result = await getAllFoldersFlat(company.id);
+      if (result.success && result.folders) {
+        const allFolders = result.folders;
         
-        const allFolders = flattenFolders(result.folders || []);
-        setAvailableFolders(allFolders);
+        // Helper to build full path for a folder
+        const getFolderPath = (folder: any): string => {
+          let path = folder.name;
+          let currentParentId = folder.parentId;
+          
+          while (currentParentId) {
+            const parent = allFolders.find((f: any) => f.id === currentParentId);
+            if (parent) {
+              path = `${parent.name} / ${path}`;
+              currentParentId = parent.parentId;
+            } else {
+              break;
+            }
+          }
+          return path;
+        };
+
+        const foldersWithPaths = allFolders
+          .filter((f: any) => f.id !== currentFolderId && f.id !== movedFile?.folderId)
+          .map((f: any) => ({
+            ...f,
+            displayName: getFolderPath(f),
+          }))
+          .sort((a: any, b: any) => a.displayName.localeCompare(b.displayName));
+
+        setAvailableFolders(foldersWithPaths);
       } else {
         console.error('Failed to load folders:', result.error);
         setAvailableFolders([]);
