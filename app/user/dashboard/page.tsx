@@ -7,13 +7,15 @@ import Link from 'next/link';
 import { logout, getAuth } from '@/app/actions/auth';
 import { getCompany } from '@/app/actions/company';
 import { getFilesByCompany } from '@/app/actions/file';
+import { getAllFoldersFlat } from '@/app/actions/folder';
 import toast from 'react-hot-toast';
-import DashboardView from './components/DashboardView';
+import DashboardView from '@/app/user/dashboard/components/DashboardView';
 
 export default function UserDashboard() {
   const router = useRouter();
   const [company, setCompany] = useState<any | null>(null);
   const [allFiles, setAllFiles] = useState<any[]>([]);
+  const [allFolders, setAllFolders] = useState<any[]>([]);
   const [documentCount, setDocumentCount] = useState(0);
 
   useEffect(() => {
@@ -43,6 +45,12 @@ export default function UserDashboard() {
           setAllFiles(filesResult.files || []);
           setDocumentCount(filesResult.files?.length || 0);
         }
+
+        // Load all folders for the tree view (including nested folders)
+        const foldersResult = await getAllFoldersFlat(auth.companyId);
+        if (foldersResult.success) {
+          setAllFolders(foldersResult.folders || []);
+        }
       } catch (error) {
         console.error('Error loading dashboard:', error);
         router.push('/user/login');
@@ -67,48 +75,44 @@ export default function UserDashboard() {
   }
 
   return (
-    <div className="flex-1 flex flex-col">
-      <header className="bg-white shadow-sm border-b">
-          <div className="px-4 sm:px-6 lg:px-8 py-4">
+    <div className="flex-1 flex flex-col min-h-0 bg-gray-50/50">
+      <header className="bg-white border-b border-gray-200 flex-shrink-0">
+        <div className="px-6 py-5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-                <LayoutDashboard className="w-8 h-8 text-[#9f1d35]" />
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-                  <p className="text-sm text-gray-500">{company?.name || ''}</p>
-                </div>
+            <div className="flex items-center space-x-4">
+              <div className="p-2.5 bg-red-50 rounded-xl">
+                <LayoutDashboard className="w-6 h-6 text-[#9f1d35]" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900 tracking-tight">Dashboard</h1>
+                <p className="text-sm text-gray-500">{company?.name || 'Welcome back'}</p>
+              </div>
             </div>
-            <div className="flex items-center space-x-3 ml-auto">
-                <Link
-                  href="/user/documents"
-                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100"
-                >
-                  <FileText className="w-5 h-5" />
-                  <span>Documents ({documentCount})</span>
-                </Link>
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 px-4 py-2 rounded-lg hover:bg-gray-100"
+            <div className="flex items-center space-x-3">
+              <Link
+                href="/user/documents"
+                className="flex items-center space-x-2 text-gray-600 hover:text-[#9f1d35] px-4 py-2 rounded-xl hover:bg-red-50 transition-all duration-200"
               >
-                <LogOut className="w-5 h-5" />
-                <span>Logout</span>
-              </button>
+                <FileText className="w-4 h-4" />
+                <span className="text-sm font-medium">Documents ({documentCount})</span>
+              </Link>
             </div>
           </div>
         </div>
       </header>
 
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8">
-          {/* Document Count Card */}
-          <div className="bg-white rounded-lg shadow p-6 mb-8">
-                  <div className="flex items-center justify-between">
+      <main className="flex-1 px-6 py-8 overflow-y-auto custom-scrollbar">
+        {/* Document Count Card */}
+        <div className="max-w-7xl mx-auto">
+          <div className="bg-white rounded-2xl border border-gray-100 p-8 mb-8 shadow-sm">
+            <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900 mb-2">Total Documents</h2>
-                <p className="text-4xl font-bold text-[#9f1d35]">{documentCount}</p>
+                <h2 className="text-sm font-semibold text-gray-500 mb-1 uppercase tracking-wider">Total Documents</h2>
+                <p className="text-5xl font-black text-[#9f1d35]">{documentCount}</p>
               </div>
               <Link
                 href="/user/documents"
-                className="px-6 py-3 bg-[#9f1d35] text-white rounded-lg hover:bg-[#8a1a2e] transition-colors"
+                className="px-6 py-3 bg-[#9f1d35] text-white rounded-xl font-bold hover:bg-[#8a1a2e] transition-all duration-200 shadow-md hover:shadow-lg active:scale-95"
               >
                 View All Documents
               </Link>
@@ -117,10 +121,13 @@ export default function UserDashboard() {
 
           {/* Dashboard View with Chart */}
           {company && (
-            <DashboardView files={allFiles} />
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+              <DashboardView files={allFiles} folders={allFolders} />
+            </div>
           )}
-        </main>
-      </div>
+        </div>
+      </main>
+    </div>
   );
 }
 

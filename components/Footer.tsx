@@ -8,7 +8,17 @@ import Logo from '@/components/Logo';
 export default function Footer() {
   const pathname = usePathname();
   // Hide footer on all admin and user dashboard pages (except login)
-  const isDashboard = (pathname?.startsWith('/admin/') || pathname?.startsWith('/user/')) && pathname !== '/user/login' && pathname !== '/admin/login';
+  const isDashboard = pathname?.includes('/admin/dashboard') || 
+                      pathname?.includes('/admin/company') ||
+                      pathname?.includes('/admin/bin') ||
+                      pathname?.includes('/admin/history') ||
+                      pathname?.includes('/user/dashboard') ||
+                      pathname?.includes('/user/documents') ||
+                      pathname?.includes('/user/notifications') ||
+                      pathname?.includes('/user/settings') ||
+                      pathname?.includes('/user/logs') ||
+                      pathname?.includes('/user/bin') ||
+                      pathname?.includes('/user/users');
   
   if (isDashboard) {
     return null;

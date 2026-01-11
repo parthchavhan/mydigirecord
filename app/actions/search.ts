@@ -20,31 +20,33 @@ export async function globalSearch(companyId: string, searchTerm: string) {
     const isAdmin = auth?.role === 'admin' || auth?.userId === 'admin' || 
       (auth?.userId && auth.userId !== 'admin' ? (await prisma.users.findUnique({ where: { id: auth.userId } }))?.role === 'admin' || (await prisma.users.findUnique({ where: { id: auth.userId } }))?.role === 'super_admin' : false);
 
-    const folderWhere: any = {
-      companyId,
-      deletedAt: null,
-    };
-
-    // If not admin, exclude locked folders
-    if (!isAdmin) {
-      folderWhere.isLocked = false;
-    }
-
-    // First, get all folder IDs for this company
-    const folders = await prisma.folders.findMany({
-      where: folderWhere,
-      select: {
-        id: true,
+    // First, get all folders for this company to check for locked parents
+    const allCompanyFolders = await prisma.folders.findMany({
+      where: {
+        companyId,
+        deletedAt: null,
       },
     });
 
-    const folderIds = folders.map(f => f.id);
+    // Helper to check if a folder or any of its parents are locked
+    const isFolderAccessible = (folderId: string, depth = 0): boolean => {
+      if (depth > 10) return false; // Prevent infinite recursion
+      const folder = allCompanyFolders.find(f => f.id === folderId);
+      if (!folder) return false;
+      if (folder.isLocked) return false;
+      if (folder.parentId) return isFolderAccessible(folder.parentId, depth + 1);
+      return true;
+    };
+
+    const accessibleFolderIds = isAdmin 
+      ? allCompanyFolders.map(f => f.id)
+      : allCompanyFolders.filter(f => isFolderAccessible(f.id)).map(f => f.id);
 
     // Search all files in the company (including nested folders)
-    const allFiles = folderIds.length > 0 ? await prisma.files.findMany({
+    const allFiles = accessibleFolderIds.length > 0 ? await prisma.files.findMany({
       where: {
         folderId: {
-          in: folderIds,
+          in: accessibleFolderIds,
         },
         deletedAt: null,
       },
@@ -59,12 +61,10 @@ export async function globalSearch(companyId: string, searchTerm: string) {
     }) : [];
 
     // Search all folders in the company
-    const allFolders = await prisma.folders.findMany({
-      where: folderWhere,
-      include: {
-        companies: true,
-        folders: true, // parent folder
-      },
+    const matchingFolders = allCompanyFolders.filter(f => {
+      const isMatch = f.name.toLowerCase().includes(term);
+      const isAccessible = isAdmin || accessibleFolderIds.includes(f.id);
+      return isMatch && isAccessible;
     });
 
     // Filter files by search term
@@ -73,22 +73,17 @@ export async function globalSearch(companyId: string, searchTerm: string) {
       (file.category && file.category.toLowerCase().includes(term))
     );
 
-    // Filter folders by search term
-    const matchingFolders = allFolders.filter((folder) =>
-      folder.name.toLowerCase().includes(term)
-    );
-
     // Build folder paths for context
     const folderPathMap = new Map<string, string[]>();
-    const buildPath = (folderId: string | null): string[] => {
-      if (!folderId) return [];
+    const buildPath = (folderId: string | null, depth = 0): string[] => {
+      if (!folderId || depth > 10) return [];
       if (folderPathMap.has(folderId)) return folderPathMap.get(folderId)!;
       
-      const folder = allFolders.find(f => f.id === folderId);
+      const folder = allCompanyFolders.find(f => f.id === folderId);
       if (!folder) return [];
       
       const path = folder.parentId 
-        ? [...buildPath(folder.parentId), folder.name]
+        ? [...buildPath(folder.parentId, depth + 1), folder.name]
         : [folder.name];
       folderPathMap.set(folderId, path);
       return path;

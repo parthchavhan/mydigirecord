@@ -433,27 +433,29 @@ export async function getFilesByCompany(companyId: string) {
     const isAdmin = auth?.role === 'admin' || auth?.userId === 'admin' || 
       (auth?.userId && auth.userId !== 'admin' ? (await prisma.users.findUnique({ where: { id: auth.userId } }))?.role === 'admin' || (await prisma.users.findUnique({ where: { id: auth.userId } }))?.role === 'super_admin' : false);
 
-    // First, get all folder IDs for this company
-    const folderWhere: any = {
-      companyId,
-      deletedAt: null,
-    };
-
-    // If not admin, exclude locked folders
-    if (!isAdmin) {
-      folderWhere.isLocked = false;
-    }
-
-    const folders = await prisma.folders.findMany({
-      where: folderWhere,
-      select: {
-        id: true,
+    // First, get all folders for this company to check for locked parents
+    const allCompanyFolders = await prisma.folders.findMany({
+      where: {
+        companyId,
+        deletedAt: null,
       },
     });
 
-    const folderIds = folders.map(f => f.id);
+    // Helper to check if a folder or any of its parents are locked
+    const isFolderAccessible = (folderId: string, depth = 0): boolean => {
+      if (depth > 10) return false;
+      const folder = allCompanyFolders.find(f => f.id === folderId);
+      if (!folder) return false;
+      if (folder.isLocked) return false;
+      if (folder.parentId) return isFolderAccessible(folder.parentId, depth + 1);
+      return true;
+    };
 
-    if (folderIds.length === 0) {
+    const accessibleFolderIds = isAdmin 
+      ? allCompanyFolders.map(f => f.id)
+      : allCompanyFolders.filter(f => isFolderAccessible(f.id)).map(f => f.id);
+
+    if (accessibleFolderIds.length === 0) {
       return { success: true, files: [] };
     }
 
@@ -461,7 +463,7 @@ export async function getFilesByCompany(companyId: string) {
     const files = await prisma.files.findMany({
       where: {
         folderId: {
-          in: folderIds,
+          in: accessibleFolderIds,
         },
         deletedAt: null,
       },
@@ -494,36 +496,38 @@ export async function getAllFilesWithFolders(companyId: string, includeLocked: b
       (auth?.userId && auth.userId !== 'admin' ? (await prisma.users.findUnique({ where: { id: auth.userId } }))?.role === 'admin' || (await prisma.users.findUnique({ where: { id: auth.userId } }))?.role === 'super_admin' : false);
 
     // Get all folders for this company
-    const folderWhere: any = {
-      companyId,
-      deletedAt: null,
-    };
-
-    // If not admin and not including locked, exclude locked folders
-    // If including locked, only show verified locked folders
-    if (!isAdmin) {
-      if (includeLocked) {
-        // Only include locked folders that have been verified
-        folderWhere.OR = [
-          { isLocked: false },
-          { isLocked: true, id: { in: verifiedFolderIds } }
-        ];
-      } else {
-        folderWhere.isLocked = false;
-      }
-    }
-
-    const folders = await prisma.folders.findMany({
-      where: folderWhere,
-      select: {
-        id: true,
-        name: true,
-        isLocked: true,
+    const allCompanyFolders = await prisma.folders.findMany({
+      where: {
+        companyId,
+        deletedAt: null,
       },
     });
 
-    const folderIds = folders.map(f => f.id);
-    const folderMap = new Map(folders.map(f => [f.id, { name: f.name, isLocked: f.isLocked }]));
+    // Helper to check if a folder or any of its parents are locked
+    // If includeLocked is true, we allow verified folders to be considered accessible
+    const isFolderAccessible = (folderId: string, depth = 0): boolean => {
+      if (depth > 10) return false;
+      const folder = allCompanyFolders.find(f => f.id === folderId);
+      if (!folder) return false;
+      
+      const isLocked = folder.isLocked;
+      const isVerified = verifiedFolderIds.includes(folder.id);
+      
+      // If folder itself is locked and not verified, it's NOT accessible
+      if (isLocked && !isVerified) return false;
+      
+      // If folder has a parent, recursively check parent accessibility
+      if (folder.parentId) return isFolderAccessible(folder.parentId, depth + 1);
+      
+      return true;
+    };
+
+    const accessibleFolders = isAdmin 
+      ? allCompanyFolders
+      : allCompanyFolders.filter(f => isFolderAccessible(f.id));
+
+    const folderIds = accessibleFolders.map(f => f.id);
+    const folderMap = new Map(accessibleFolders.map(f => [f.id, { name: f.name, isLocked: f.isLocked }]));
 
     if (folderIds.length === 0) {
       return { success: true, files: [] };
