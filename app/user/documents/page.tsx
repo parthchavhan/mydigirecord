@@ -50,6 +50,7 @@ export default function DocumentsPage() {
   const [documentCount, setDocumentCount] = useState(0);
   const [viewingFile, setViewingFile] = useState<any | null>(null);
   const [copiedFile, setCopiedFile] = useState<any | null>(null);
+  const [copiedBulkItems, setCopiedBulkItems] = useState<any[]>([]);
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [availableFolders, setAvailableFolders] = useState<any[]>([]);
   const [showEditDetailsModal, setShowEditDetailsModal] = useState(false);
@@ -740,29 +741,38 @@ export default function DocumentsPage() {
     refreshView();
   };
 
-  const handleBulkCopy = async () => {
-    if (selectedItems.size === 0 || !currentFolderId) {
-      toast.error('Please select files and navigate to a folder to paste them.');
-      return;
-    }
+  const handleBulkCopy = () => {
+    if (selectedItems.size === 0) return;
 
     const filesToCopy = Array.from(selectedItems)
-      .map(id => currentItems.find(item => item.id === id))
+      .map(id => {
+        const item = currentItems.find(i => i.id === id);
+        return item;
+      })
       .filter(item => item && !('other_folders' in item || 'parentId' in item));
 
     if (filesToCopy.length === 0) {
-      toast.error('Please select files to copy.');
+      toast.error('Only files can be copied at this time.');
       return;
     }
 
+    setCopiedBulkItems(filesToCopy);
+    setCopiedFile(null); // Clear single copied file
+    toast.success(`${filesToCopy.length} file(s) copied! Go to a folder to paste.`);
+    setSelectedItems(new Set());
+  };
+
+  const handleBulkPaste = async () => {
+    if (copiedBulkItems.length === 0 || !currentFolderId) return;
+
     let successCount = 0;
-    for (const file of filesToCopy) {
+    for (const file of copiedBulkItems) {
       const result = await copyFile(file.id, currentFolderId);
       if (result.success) successCount++;
     }
 
-    toast.success(`${successCount} file(s) copied successfully!`);
-    setSelectedItems(new Set());
+    toast.success(`${successCount} file(s) pasted successfully!`);
+    setCopiedBulkItems([]);
     refreshView();
   };
 
@@ -916,31 +926,34 @@ export default function DocumentsPage() {
           </div>
 
           {selectedItems.size > 0 && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <span className="text-blue-800 font-medium text-sm sm:text-base">{selectedItems.size} item(s) selected</span>
+            <div className="bg-white border-2 border-[#9f1d35] rounded-xl p-3 sm:p-4 mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="flex items-center space-x-3">
+                <div className="bg-[#9f1d35] text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm">
+                  {selectedItems.size}
+                </div>
+                <span className="text-gray-900 font-semibold text-sm sm:text-base">Items Selected</span>
+              </div>
               <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-                {currentFolderId !== null && (
-                  <button
-                    onClick={handleBulkCopy}
-                    className="flex items-center space-x-2 bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 text-sm sm:text-base"
-                  >
-                    <Copy className="w-4 h-4" />
-                    <span>Copy Selected</span>
-                  </button>
-                )}
+                <button
+                  onClick={handleBulkCopy}
+                  className="flex-1 sm:flex-none flex items-center justify-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all active:scale-95 text-sm sm:text-base font-medium shadow-sm"
+                >
+                  <Copy className="w-4 h-4" />
+                  <span>Copy</span>
+                </button>
                 <button
                   onClick={handleBulkDelete}
-                  className="flex items-center space-x-2 bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 text-sm sm:text-base"
+                  className="flex-1 sm:flex-none flex items-center justify-center space-x-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-all active:scale-95 text-sm sm:text-base font-medium shadow-sm"
                 >
                   <Trash2 className="w-4 h-4" />
-                  <span>Delete Selected</span>
+                  <span>Delete</span>
                 </button>
                 <button
                   onClick={() => setSelectedItems(new Set())}
-                  className="flex items-center space-x-2 bg-gray-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-gray-700 text-sm sm:text-base"
+                  className="flex-1 sm:flex-none flex items-center justify-center space-x-2 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-all active:scale-95 text-sm sm:text-base font-medium"
                 >
                   <X className="w-4 h-4" />
-                  <span>Clear Selection</span>
+                  <span>Cancel</span>
                 </button>
               </div>
             </div>
@@ -950,7 +963,7 @@ export default function DocumentsPage() {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setShowFolderModal(true)}
-                className="flex items-center space-x-2 bg-[#9f1d35] text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-[#8a1a2e] text-sm sm:text-base"
+                className="flex items-center space-x-2 bg-[#9f1d35] text-white px-4 py-2.5 rounded-lg hover:bg-[#8a1a2e] text-sm sm:text-base font-medium shadow-sm transition-all active:scale-95"
               >
                 <FolderPlus className="w-4 h-4 sm:w-5 sm:h-5" />
                 <span className="whitespace-nowrap">New Folder</span>
@@ -959,19 +972,19 @@ export default function DocumentsPage() {
                 <>
                   <button
                     onClick={() => setShowFileModal(true)}
-                    className="flex items-center space-x-2 bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 text-sm sm:text-base"
+                    className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2.5 rounded-lg hover:bg-green-700 text-sm sm:text-base font-medium shadow-sm transition-all active:scale-95"
                   >
                     <Upload className="w-4 h-4 sm:w-5 sm:h-5" />
-                    <span className="whitespace-nowrap">Upload Document</span>
+                    <span className="whitespace-nowrap">Upload</span>
                   </button>
-                  {copiedFile && (
+                  {(copiedFile || copiedBulkItems.length > 0) && (
                     <button
-                      onClick={handlePasteFileClick}
-                      className="flex items-center space-x-2 bg-blue-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-blue-700 text-sm sm:text-base"
-                      title={`Paste "${copiedFile.name}"`}
+                      onClick={copiedFile ? handlePasteFileClick : handleBulkPaste}
+                      className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 text-sm sm:text-base font-medium shadow-sm transition-all animate-pulse"
+                      title={copiedFile ? `Paste "${copiedFile.name}"` : `Paste ${copiedBulkItems.length} items`}
                     >
                       <Clipboard className="w-4 h-4 sm:w-5 sm:h-5" />
-                      <span className="whitespace-nowrap">Paste</span>
+                      <span className="whitespace-nowrap">Paste {copiedBulkItems.length > 0 ? `(${copiedBulkItems.length})` : ''}</span>
                     </button>
                   )}
                 </>
@@ -1005,224 +1018,139 @@ export default function DocumentsPage() {
           </div>
 
           {currentItems.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg shadow">
-              <Folder className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">This folder is empty</p>
+            <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-100">
+              <Folder className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 font-medium">This folder is empty</p>
             </div>
           ) : filteredItems.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-lg shadow">
-              <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No items found matching your search</p>
+            <div className="text-center py-12 bg-white rounded-xl shadow-sm border border-gray-100">
+              <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+              <p className="text-gray-500 font-medium">No items found matching your search</p>
               {(searchTerm || filterType !== 'all') && (
                 <button
                   onClick={() => {
                     setSearchTerm('');
                     setFilterType('all');
                   }}
-                  className="mt-4 text-[#9f1d35] hover:underline"
+                  className="mt-4 text-[#9f1d35] hover:underline font-medium"
                 >
                   Clear filters
                 </button>
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
               {filteredItems.map((item) => {
                 const isFolder = 'other_folders' in item || 'parentId' in item;
+                const isSelected = selectedItems.has(item.id);
                 return (
                     <div
                       key={item.id}
-                      className={`bg-white rounded-lg shadow p-4 sm:p-5 transition-all relative ${
-                        isFolder ? 'hover:shadow-lg hover:border-[#9f1d35] border-2 border-transparent' : ''
-                      } ${selectedItems.has(item.id) ? 'ring-2 ring-[#9f1d35]' : ''}`}
+                      className={`group relative bg-white rounded-xl border transition-all duration-200 ${
+                        isSelected 
+                          ? 'border-[#9f1d35] bg-red-50/30 ring-1 ring-[#9f1d35] shadow-md' 
+                          : 'border-gray-200 hover:border-[#9f1d35]/30 hover:shadow-lg hover:-translate-y-0.5'
+                      }`}
                     >
-                      <div className="flex items-center justify-between gap-3 sm:gap-4">
-                        <div className="flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0">
+                      <div className="p-4">
+                        <div className="flex items-start justify-between mb-3">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               toggleSelectItem(item.id);
                             }}
-                            className="p-1.5 hover:bg-gray-100 rounded flex-shrink-0 transition-colors"
+                            className={`p-1 rounded-md transition-colors ${
+                              isSelected ? 'bg-[#9f1d35] text-white' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                            }`}
                           >
-                            {selectedItems.has(item.id) ? (
-                              <CheckSquare className="w-5 h-5 sm:w-6 sm:h-6 text-[#9f1d35]" />
-                            ) : (
-                              <Square className="w-5 h-5 sm:w-6 sm:h-6 text-gray-400" />
-                            )}
+                            <CheckSquare className={`w-4 h-4 ${isSelected ? 'block' : 'opacity-0 group-hover:opacity-100'}`} />
                           </button>
-                          <div
-                            onClick={() => {
-                              if (isFolder) {
-                                navigateToFolder(item.id);
-                              } else {
-                                handleViewFile(item);
-                              }
-                            }}
-                            className={`flex items-center space-x-3 sm:space-x-4 flex-1 min-w-0 cursor-pointer group`}
-                          >
-                            {isFolder ? (
-                              <div className="relative">
-                              <Folder className="w-8 h-8 sm:w-10 sm:h-10 text-[#9f1d35] flex-shrink-0 group-hover:scale-110 transition-transform" />
-                                {item.isLocked && (
-                                  <Lock className="w-3 h-3 sm:w-4 sm:h-4 absolute -top-1 -right-1 bg-yellow-500 text-white rounded-full p-0.5" />
-                                )}
-                              </div>
-                            ) : (
-                              <File className="w-8 h-8 sm:w-10 sm:h-10 text-gray-600 flex-shrink-0 group-hover:scale-110 transition-transform" />
+                          
+                          <div className="relative">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenMenuId(openMenuId === item.id ? null : item.id);
+                              }}
+                              className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                            >
+                              <MoreVertical className="w-5 h-5" />
+                            </button>
+                            
+                            {openMenuId === item.id && (
+                              <>
+                                <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
+                                <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-xl border border-gray-100 z-20 py-1 animate-in fade-in zoom-in-95 duration-100">
+                                  {!isFolder && (
+                                    <>
+                                      <button onClick={(e) => { e.stopPropagation(); handleViewFile(item); }} className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"><Eye className="w-4 h-4" /><span>View</span></button>
+                                      <button onClick={(e) => { e.stopPropagation(); handleEditFile(item); }} className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"><Edit className="w-4 h-4" /><span>Edit Details</span></button>
+                                      <button onClick={(e) => { e.stopPropagation(); handleCopyFile(item); }} className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"><Copy className="w-4 h-4" /><span>Copy</span></button>
+                                      <button onClick={(e) => { e.stopPropagation(); handleMoveFile(item); }} className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"><Move className="w-4 h-4" /><span>Move</span></button>
+                                      <button onClick={(e) => { e.stopPropagation(); handleShareFile(item); }} className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"><Share2 className="w-4 h-4" /><span>Share</span></button>
+                                    </>
+                                  )}
+                                  <button onClick={(e) => { e.stopPropagation(); handleShowInfo(item); }} className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"><Info className="w-4 h-4" /><span>Get Info</span></button>
+                                  <button onClick={(e) => { e.stopPropagation(); handleEditItem(item); }} className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"><Edit className="w-4 h-4" /><span>Rename</span></button>
+                                  {isFolder && isAdmin && (
+                                    item.isLocked ? (
+                                      <button onClick={(e) => { e.stopPropagation(); handleUnlockFolder(item); }} className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-orange-600 hover:bg-orange-50"><Unlock className="w-4 h-4" /><span>Unlock Folder</span></button>
+                                    ) : (
+                                      <button onClick={(e) => { e.stopPropagation(); handleLockFolder(item); }} className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"><Lock className="w-4 h-4" /><span>Lock Folder</span></button>
+                                    )
+                                  )}
+                                  <div className="border-t border-gray-100 my-1"></div>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      if (isFolder) handleDeleteFolder(item.id, item.name);
+                                      else handleDeleteFile(item.id, item.name);
+                                    }}
+                                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                    <span>Delete</span>
+                                  </button>
+                                </div>
+                              </>
                             )}
-                            <div className="flex-1 min-w-0 space-y-1">
-                              <div className="flex items-center gap-1">
-                              <p className="text-sm sm:text-base font-medium text-gray-900 truncate group-hover:text-[#9f1d35] transition-colors">{item.name}</p>
-                                {isFolder && item.isLocked && (
-                                  <span title="Locked folder - password required">
-                                    <Lock className="w-3 h-3 text-yellow-600 flex-shrink-0" />
-                                  </span>
-                                )}
-                              </div>
-                              <p className="text-xs sm:text-sm text-gray-500">
+                          </div>
+                        </div>
+
+                        <div
+                          onClick={() => {
+                            if (isFolder) navigateToFolder(item.id);
+                            else handleViewFile(item);
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <div className="flex flex-col items-center text-center space-y-3">
+                            <div className="relative">
+                              {isFolder ? (
+                                <div className="relative">
+                                  <Folder className={`w-16 h-16 transition-transform duration-200 group-hover:scale-110 ${isSelected ? 'text-[#9f1d35]' : 'text-[#9f1d35]/80'}`} />
+                                  {item.isLocked && (
+                                    <div className="absolute -top-1 -right-1 bg-yellow-500 text-white rounded-full p-1 shadow-sm">
+                                      <Lock className="w-3 h-3" />
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <File className={`w-16 h-16 transition-transform duration-200 group-hover:scale-110 ${isSelected ? 'text-[#9f1d35]' : 'text-gray-400'}`} />
+                              )}
+                            </div>
+                            <div className="w-full">
+                              <p className={`text-sm font-semibold truncate px-2 ${isSelected ? 'text-[#9f1d35]' : 'text-gray-900'}`} title={item.name}>
+                                {item.name}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
                                 {new Date(item.createdAt || item.data?.createdAt).toLocaleDateString()}
                               </p>
                             </div>
                           </div>
                         </div>
-                        <div className="relative flex-shrink-0 ml-2">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenMenuId(openMenuId === item.id ? null : item.id);
-                          }}
-                            className="p-1.5 sm:p-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                          title="More options"
-                        >
-                          <MoreVertical className="w-4 h-4" />
-                        </button>
-                        {openMenuId === item.id && (
-                          <>
-                            <div
-                              className="fixed inset-0 z-10"
-                              onClick={() => setOpenMenuId(null)}
-                            />
-                            <div className="absolute right-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-20 max-h-[80vh] overflow-y-auto">
-                              {!isFolder && (
-                                <>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleViewFile(item);
-                                    }}
-                                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-t-lg"
-                                  >
-                                    <Eye className="w-4 h-4" />
-                                    <span>View</span>
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleEditFile(item);
-                                    }}
-                                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                    <span>Edit Details</span>
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleCopyFile(item);
-                                    }}
-                                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                  >
-                                    <Copy className="w-4 h-4" />
-                                    <span>Copy</span>
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleMoveFile(item);
-                                    }}
-                                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                  >
-                                    <Move className="w-4 h-4" />
-                                    <span>Move</span>
-                                  </button>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleShareFile(item);
-                                    }}
-                                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                                  >
-                                    <Share2 className="w-4 h-4" />
-                                    <span>Share</span>
-                                  </button>
-                                </>
-                              )}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleShowInfo(item);
-                                }}
-                                className={`w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 ${!isFolder ? '' : 'rounded-t-lg'}`}
-                              >
-                                <Info className="w-4 h-4" />
-                                <span>Get Info</span>
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditItem(item);
-                                }}
-                                className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                              >
-                                <Edit className="w-4 h-4" />
-                                <span>Edit Name</span>
-                              </button>
-                              {isFolder && isAdmin && (
-                                item.isLocked ? (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleUnlockFolder(item);
-                                    }}
-                                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-orange-600 hover:bg-orange-50"
-                                  >
-                                    <Unlock className="w-4 h-4" />
-                                    <span>Unlock Folder</span>
-                                  </button>
-                                ) : (
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleLockFolder(item);
-                                    }}
-                                    className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
-                                  >
-                                    <Lock className="w-4 h-4" />
-                                    <span>Lock Folder</span>
-                                  </button>
-                                )
-                              )}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  if (isFolder) {
-                                    handleDeleteFolder(item.id, item.name);
-                                  } else {
-                                    handleDeleteFile(item.id, item.name);
-                                  }
-                                }}
-                                className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-b-lg"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                                <span>Delete</span>
-                              </button>
-                            </div>
-                          </>
-                        )}
                       </div>
                     </div>
-                  </div>
                 );
               })}
             </div>

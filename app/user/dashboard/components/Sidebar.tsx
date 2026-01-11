@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { LayoutDashboard, FileText, Settings, Trash2, History, Bell } from 'lucide-react';
+import { LayoutDashboard, FileText, Settings, Trash2, History, Bell, Users } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import Logo from '@/components/Logo';
@@ -36,7 +36,10 @@ export default function Sidebar() {
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard, href: '/user/dashboard' },
     { id: 'notifications', label: 'Notifications', icon: Bell, href: '/user/notifications', badge: unreadCount > 0 ? unreadCount : null },
     { id: 'documents', label: 'Documents', icon: FileText, href: '/user/documents' },
-    ...(isAdmin ? [{ id: 'logs', label: 'Logs', icon: History, href: '/user/logs' }] : []),
+    ...(isAdmin ? [
+      { id: 'users', label: 'Users', icon: Users, href: '/user/users' },
+      { id: 'logs', label: 'Logs', icon: History, href: '/user/logs' }
+    ] : []),
     { id: 'settings', label: 'Settings', icon: Settings, href: '/user/settings' },
     { id: 'bin', label: 'Bin', icon: Trash2, href: '/user/bin' },
   ];

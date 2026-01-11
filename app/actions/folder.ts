@@ -13,21 +13,6 @@ export async function createFolder(name: string, companyId: string, parentId: st
       return { success: false, error: 'Unauthorized' };
     }
 
-    // Only admins and super_admins can create folders
-    if (auth.role !== 'admin' && auth.role !== 'super_admin' && auth.userId !== 'admin') {
-      // Check if user is admin in database
-      if (auth.userId && auth.userId !== 'admin') {
-        const user = await prisma.users.findUnique({
-          where: { id: auth.userId },
-        });
-        if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
-          return { success: false, error: 'Only admins can create folders' };
-        }
-      } else {
-        return { success: false, error: 'Only admins can create folders' };
-      }
-    }
-
     // Set userId to null for admin users since they don't have a User record in the database
     const userId = auth?.role === 'admin' || auth?.userId === 'admin' ? null : (auth?.userId || null);
     const folder = await prisma.folders.create({
@@ -440,6 +425,7 @@ export async function getLockedFolders(companyId: string) {
         id: true,
         name: true,
         isLocked: true,
+        createdAt: true,
       },
     });
     return { success: true, folders };

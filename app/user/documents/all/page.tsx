@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { File, Lock, Eye, ChevronLeft, Search } from 'lucide-react';
+import { File, Lock, Eye, ChevronLeft, Search, Folder } from 'lucide-react';
 import Link from 'next/link';
 import { getAuth } from '@/app/actions/auth';
 import { getCompany } from '@/app/actions/company';
@@ -16,9 +16,10 @@ export default function AllDocumentsPage() {
   const router = useRouter();
   const [company, setCompany] = useState<any | null>(null);
   const [allFiles, setAllFiles] = useState<any[]>([]);
+  const [lockedFolders, setLockedFolders] = useState<any[]>([]);
   const [filteredFiles, setFilteredFiles] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
-  const [showLockedFolders, setShowLockedFolders] = useState(false);
+  const [showLockedFolders, setShowLockedFolders] = useState(true);
   const [verifiedFolderIds, setVerifiedFolderIds] = useState<Set<string>>(new Set());
   const [viewingFile, setViewingFile] = useState<any | null>(null);
   const [passwordModalFolder, setPasswordModalFolder] = useState<any | null>(null);
@@ -41,7 +42,8 @@ export default function AllDocumentsPage() {
         }
 
         setCompany(result.company);
-        await loadFiles(false, []);
+        // Initial load with no verified IDs
+        await loadFiles(auth.companyId, false, []);
       } catch (error) {
         console.error('Error loading documents:', error);
         router.push('/user/login');
@@ -52,16 +54,23 @@ export default function AllDocumentsPage() {
     loadData();
   }, [router]);
 
-  const loadFiles = async (includeLocked: boolean, verifiedIds: string[]) => {
-    if (!company) return;
-    
+  const loadFiles = async (companyId: string, includeLocked: boolean, verifiedIds: string[]) => {
     try {
-      const result = await getAllFilesWithFolders(company.id, includeLocked, verifiedIds);
+      // Get all files from non-locked and verified folders
+      const result = await getAllFilesWithFolders(companyId, includeLocked, verifiedIds);
       if (result.success) {
         setAllFiles(result.files || []);
-        setFilteredFiles(result.files || []);
       } else {
         toast.error(result.error || 'Failed to load files');
+      }
+
+      // Always fetch locked folders to show them if they are not verified
+      const lockedResult = await getLockedFolders(companyId);
+      if (lockedResult.success) {
+        const unverified = (lockedResult.folders || []).filter(
+          (f: any) => !verifiedIds.includes(f.id)
+        );
+        setLockedFolders(unverified);
       }
     } catch (error) {
       console.error('Error loading files:', error);
@@ -70,76 +79,94 @@ export default function AllDocumentsPage() {
   };
 
   useEffect(() => {
+    // 1. Start with files from non-locked folders
+    let baseFiles = allFiles.filter(file => !file.folderIsLocked);
+    
+    // 2. Add files from verified locked folders
+    if (verifiedFolderIds.size > 0) {
+      const verifiedFiles = allFiles.filter(file => 
+        file.folderIsLocked && verifiedFolderIds.has(file.folderId)
+      );
+      baseFiles = [...baseFiles, ...verifiedFiles];
+    }
+    
+    let combinedItems = [...baseFiles];
+    
+    // 3. Add unverified locked folders to the list if the toggle is on
+    if (showLockedFolders) {
+      const lockedItems = lockedFolders.map(folder => ({
+        ...folder,
+        isFolder: true,
+        type: 'folder'
+      }));
+      combinedItems = [...combinedItems, ...lockedItems];
+    }
+
     if (searchTerm.trim() === '') {
-      setFilteredFiles(allFiles);
+      setFilteredFiles(combinedItems);
     } else {
       const term = searchTerm.toLowerCase();
-      const filtered = allFiles.filter(file => 
-        file.name.toLowerCase().includes(term) ||
-        file.folderName?.toLowerCase().includes(term) ||
-        file.category?.toLowerCase().includes(term)
-      );
+      const filtered = combinedItems.filter(item => {
+        const name = item.name || '';
+        const folderName = item.folderName || '';
+        const category = item.category || '';
+        return (
+          name.toLowerCase().includes(term) ||
+          folderName.toLowerCase().includes(term) ||
+          category.toLowerCase().includes(term)
+        );
+      });
       setFilteredFiles(filtered);
     }
-  }, [searchTerm, allFiles]);
+  }, [searchTerm, allFiles, lockedFolders, showLockedFolders, verifiedFolderIds]);
 
-  const handleToggleLockedFolders = async () => {
-    if (!showLockedFolders) {
-      // User wants to show locked folders - need to get locked folders and verify passwords
-      if (!company) return;
+  const handleToggleLockedFolders = () => {
+    setShowLockedFolders(!showLockedFolders);
+  };
 
-      // Get all locked folders for this company
-      const lockedFoldersResult = await getLockedFolders(company.id);
-      
-      if (!lockedFoldersResult.success || !lockedFoldersResult.folders || lockedFoldersResult.folders.length === 0) {
-        toast.error('No locked folders found');
-        return;
-      }
-
-      // Show password modal for locked folders
-      setPasswordModalFolder({ id: 'all', name: 'All Locked Folders' });
-    } else {
-      // User wants to hide locked folders
-      setShowLockedFolders(false);
-      setVerifiedFolderIds(new Set());
-      await loadFiles(false, []);
-    }
+  const handleUnlockFolder = (folder: any) => {
+    setPasswordModalFolder(folder);
   };
 
   const handlePasswordSubmit = async (password: string) => {
     if (!company || !passwordModalFolder) return false;
 
     try {
-      // Get all locked folders
-      const lockedFoldersResult = await getLockedFolders(company.id);
-      
-      if (!lockedFoldersResult.success || !lockedFoldersResult.folders) {
-        return false;
-      }
+      // If it's the 'all' option (from the toggle, if we still want that)
+      if (passwordModalFolder.id === 'all') {
+        const lockedFoldersResult = await getLockedFolders(company.id);
+        if (!lockedFoldersResult.success || !lockedFoldersResult.folders) return false;
 
-      // Verify password for each locked folder
-      const verifiedIds: string[] = [];
-      for (const folder of lockedFoldersResult.folders) {
-        const result = await verifyFolderPassword(folder.id, password);
-        if (result.success && result.verified) {
-          verifiedIds.push(folder.id);
+        const verifiedIds: string[] = [];
+        for (const folder of lockedFoldersResult.folders) {
+          const result = await verifyFolderPassword(folder.id, password);
+          if (result.success && result.verified) {
+            verifiedIds.push(folder.id);
+          }
         }
+
+        if (verifiedIds.length === 0) return false;
+
+        const newVerifiedSet = new Set([...Array.from(verifiedFolderIds), ...verifiedIds]);
+        setVerifiedFolderIds(newVerifiedSet);
+        await loadFiles(company.id, true, Array.from(newVerifiedSet));
+        toast.success(`Unlocked ${verifiedIds.length} folder${verifiedIds.length !== 1 ? 's' : ''}`);
+        return true;
       }
 
-      if (verifiedIds.length === 0) {
-        return false; // Password incorrect for all folders
+      // Single folder unlock
+      const result = await verifyFolderPassword(passwordModalFolder.id, password);
+      if (result.success && result.verified) {
+        const newVerifiedSet = new Set(verifiedFolderIds);
+        newVerifiedSet.add(passwordModalFolder.id);
+        setVerifiedFolderIds(newVerifiedSet);
+        
+        await loadFiles(company.id, true, Array.from(newVerifiedSet));
+        toast.success(`Unlocked folder: ${passwordModalFolder.name}`);
+        return true;
       }
 
-      // Update verified folder IDs
-      const newVerifiedSet = new Set(verifiedIds);
-      setVerifiedFolderIds(newVerifiedSet);
-      setShowLockedFolders(true);
-      
-      // Reload files with verified locked folders
-      await loadFiles(true, verifiedIds);
-      
-      toast.success(`Unlocked ${verifiedIds.length} folder${verifiedIds.length !== 1 ? 's' : ''}`);
-      return true;
+      return false;
     } catch (error) {
       console.error('Error verifying password:', error);
       return false;
@@ -250,50 +277,73 @@ export default function AllDocumentsPage() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredFiles.map((file) => (
-                    <tr key={file.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <File className="w-5 h-5 text-gray-600 mr-3 flex-shrink-0" />
-                          <span className="text-sm font-medium text-gray-900">{file.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <span className="text-sm text-gray-700">{file.folderName || 'Unknown'}</span>
-                          {file.folderIsLocked && (
-                            <span title="Locked folder">
-                              <Lock className="w-4 h-4 text-yellow-600 ml-2" />
+                  {filteredFiles.map((item) => {
+                    const isFolder = item.isFolder || false;
+                    return (
+                      <tr key={`${isFolder ? 'folder' : 'file'}-${item.id}`} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            {isFolder ? (
+                              <Folder className="w-5 h-5 text-[#9f1d35] mr-3 flex-shrink-0" />
+                            ) : (
+                              <File className="w-5 h-5 text-gray-600 mr-3 flex-shrink-0" />
+                            )}
+                            <span className={`text-sm font-medium ${isFolder ? 'text-[#9f1d35]' : 'text-gray-900'}`}>
+                              {item.name}
                             </span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            {isFolder ? (
+                              <span className="text-sm text-gray-500 italic">Locked Folder</span>
+                            ) : (
+                              <span className="text-sm text-gray-700">{item.folderName || 'Unknown'}</span>
+                            )}
+                            {(item.folderIsLocked || isFolder) && (
+                              <span title="Locked folder">
+                                <Lock className="w-4 h-4 text-yellow-600 ml-2" />
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-700">
+                            {isFolder ? '-' : (item.category || '-')}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-700">
+                            {isFolder ? '-' : formatFileSize(item.size || 0)}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-700">
+                            {new Date(item.createdAt).toLocaleDateString()}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {isFolder ? (
+                            <button
+                              onClick={() => handleUnlockFolder(item)}
+                              className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100 transition-colors"
+                            >
+                              <Lock className="w-4 h-4 mr-1" />
+                              Unlock
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => setViewingFile(item)}
+                              className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-[#9f1d35] bg-red-50 hover:bg-red-100 transition-colors"
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              View
+                            </button>
                           )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-700">
-                          {file.category || '-'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-700">
-                          {formatFileSize(file.size || 0)}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-700">
-                          {new Date(file.createdAt).toLocaleDateString()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => setViewingFile(file)}
-                          className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-[#9f1d35] bg-red-50 hover:bg-red-100 transition-colors"
-                        >
-                          <Eye className="w-4 h-4 mr-1" />
-                          View
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

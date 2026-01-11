@@ -8,13 +8,33 @@ export async function createUser(name: string, email: string, password: string, 
     const { getAuth } = await import('./auth');
     const auth = await getAuth();
     
-    // Only super_admin can create admins, admins can create employees
+    if (!auth) return { success: false, error: 'Unauthorized' };
+
+    // Authorization check: Only super_admin or company admin can create users
+    let isAuthorized = false;
+    if (auth.role === 'admin' || auth.userId === 'admin') {
+      isAuthorized = true;
+    } else if (auth.userId) {
+      const currentUser = await prisma.users.findUnique({ where: { id: auth.userId } });
+      if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
+      return { success: false, error: 'Unauthorized. Admin privileges required.' };
+    }
+
+    // Role specific checks
     if (role === 'admin' || role === 'super_admin') {
-      if (auth?.role !== 'admin' && auth?.userId !== 'admin') {
-        const user = auth?.userId ? await prisma.users.findUnique({ where: { id: auth.userId } }) : null;
-        if (!user || user.role !== 'super_admin') {
-          return { success: false, error: 'Only super admins can create admin accounts' };
-        }
+      const currentUser = auth.userId !== 'admin' ? await prisma.users.findUnique({ where: { id: auth.userId! } }) : null;
+      // Only super_admins (system or company) can create other admins
+      if (auth.userId !== 'admin' && (!currentUser || (currentUser.role !== 'super_admin' && currentUser.role !== 'admin'))) {
+        return { success: false, error: 'Insufficient permissions to create admin accounts' };
+      }
+      // Only super_admins can create super_admins
+      if (role === 'super_admin' && auth.userId !== 'admin' && (!currentUser || currentUser.role !== 'super_admin')) {
+        return { success: false, error: 'Only super admins can create super admin accounts' };
       }
     }
 
@@ -43,6 +63,7 @@ export async function createUser(name: string, email: string, password: string, 
       },
     });
     revalidatePath('/admin/dashboard');
+    revalidatePath('/user/users');
     return { success: true, user };
   } catch (error) {
     console.error('Error creating user:', error);
@@ -234,19 +255,34 @@ export async function updateUserRole(userId: string, newRole: string) {
     const { getAuth } = await import('./auth');
     const auth = await getAuth();
     
-    // Only super_admin can change roles to admin or super_admin
-    if (newRole === 'admin' || newRole === 'super_admin') {
-      if (auth?.role !== 'admin' && auth?.userId !== 'admin') {
-        const user = auth?.userId ? await prisma.users.findUnique({ where: { id: auth.userId } }) : null;
-        if (!user || user.role !== 'super_admin') {
-          return { success: false, error: 'Only super admins can assign admin roles' };
-        }
+    if (!auth) return { success: false, error: 'Unauthorized' };
+
+    // Check if the current user is an admin (either system admin or company admin)
+    let isAuthorized = false;
+    if (auth.role === 'admin' || auth.userId === 'admin') {
+      isAuthorized = true;
+    } else if (auth.userId) {
+      const currentUser = await prisma.users.findUnique({ where: { id: auth.userId } });
+      if (currentUser && (currentUser.role === 'admin' || currentUser.role === 'super_admin')) {
+        isAuthorized = true;
       }
+    }
+
+    if (!isAuthorized) {
+      return { success: false, error: 'Unauthorized. Admin privileges required.' };
     }
 
     // Validate role
     if (!['employee', 'admin', 'super_admin'].includes(newRole)) {
       return { success: false, error: 'Invalid role' };
+    }
+
+    // Restrict company admins from creating super_admins if they are not super_admins themselves
+    if (newRole === 'super_admin') {
+      const currentUser = auth.userId !== 'admin' ? await prisma.users.findUnique({ where: { id: auth.userId! } }) : null;
+      if (auth.userId !== 'admin' && (!currentUser || currentUser.role !== 'super_admin')) {
+        return { success: false, error: 'Only super admins can assign super admin role' };
+      }
     }
 
     await prisma.users.update({
@@ -258,6 +294,7 @@ export async function updateUserRole(userId: string, newRole: string) {
     });
 
     revalidatePath('/admin/dashboard');
+    revalidatePath('/user/users');
     return { success: true };
   } catch (error) {
     console.error('Error updating user role:', error);
