@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import type React from 'react';
 import toast from 'react-hot-toast';
 import { createCompany, deleteCompany } from '@/app/actions/company';
 import { createFolder, deleteFolder, updateFolder, getFolderStats, lockFolder, unlockFolder } from '@/app/actions/folder';
@@ -7,7 +8,9 @@ import { getFoldersByCompany } from '@/app/actions/folder';
 import type { Company, Folder } from '../types';
 
 export function useCompanyHandlers(
-  loadCompanies: () => Promise<void>
+  loadCompanies: () => Promise<void>,
+  setCompanies?: React.Dispatch<React.SetStateAction<Company[]>>,
+  companies?: Company[]
 ) {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [companyName, setCompanyName] = useState('');
@@ -247,6 +250,19 @@ export function useCompanyHandlers(
     if (!lockingFolder) return false;
     const result = await lockFolder(lockingFolder.id, password);
     if (result.success) {
+      // Optimistically update UI immediately
+      if (setCompanies && companies) {
+        setCompanies(prevCompanies =>
+          prevCompanies.map(company => ({
+            ...company,
+            folders: company.folders.map(folder =>
+              folder.id === lockingFolder.id
+                ? { ...folder, isLocked: true, password }
+                : folder
+            ),
+          }))
+        );
+      }
       toast.success('Folder locked successfully!');
       setLockingFolder(null);
       loadCompanies();

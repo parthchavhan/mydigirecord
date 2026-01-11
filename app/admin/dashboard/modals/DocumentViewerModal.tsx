@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { X, Download, Printer } from 'lucide-react';
 import BaseModal from '../components/BaseModal';
 import type { File } from '../types';
@@ -15,6 +16,76 @@ export default function DocumentViewerModal({
   onClose,
   file,
 }: DocumentViewerModalProps) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file || !file.url || !isOpen) {
+      // Cleanup previous blob URL if exists
+      setBlobUrl(prev => {
+        if (prev && prev.startsWith('blob:')) {
+          window.URL.revokeObjectURL(prev);
+        }
+        return null;
+      });
+      return;
+    }
+
+    let currentBlobUrl: string | null = null;
+
+    // Fetch file as blob to prevent download
+    const fetchFileAsBlob = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const response = await fetch(file.url!, {
+          method: 'GET',
+          headers: {
+            'Accept': file.mimeType || '*/*',
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch file');
+        }
+        
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        currentBlobUrl = url;
+        setBlobUrl(url);
+      } catch (err) {
+        console.error('Error fetching file:', err);
+        setError('Failed to load file. Please try downloading it instead.');
+        // Fallback to original URL if blob fetch fails
+        setBlobUrl(file.url!);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFileAsBlob();
+
+    // Cleanup blob URL when component unmounts or file changes
+    return () => {
+      if (currentBlobUrl && currentBlobUrl.startsWith('blob:')) {
+        window.URL.revokeObjectURL(currentBlobUrl);
+      }
+    };
+  }, [file?.url, isOpen, file?.mimeType]);
+
+  // Cleanup on close
+  useEffect(() => {
+    if (!isOpen) {
+      setBlobUrl(prev => {
+        if (prev && prev.startsWith('blob:')) {
+          window.URL.revokeObjectURL(prev);
+        }
+        return null;
+      });
+    }
+  }, [isOpen]);
+
   if (!file || !file.url) {
     return null;
   }
@@ -29,6 +100,7 @@ export default function DocumentViewerModal({
   };
 
   const fileType = getFileType(file.mimeType);
+  const displayUrl = blobUrl || file.url;
 
   const handleDownload = async () => {
     if (!file.url) {
@@ -67,13 +139,14 @@ export default function DocumentViewerModal({
   };
 
   const handlePrint = () => {
-    if (!file.url) {
+    const urlToPrint = blobUrl || file.url;
+    if (!urlToPrint) {
       return;
     }
 
     try {
       if (fileType === 'pdf' || fileType === 'image') {
-        const printWindow = window.open(file.url, '_blank');
+        const printWindow = window.open(urlToPrint, '_blank');
         if (printWindow) {
           printWindow.addEventListener('load', () => {
             setTimeout(() => {
@@ -82,7 +155,7 @@ export default function DocumentViewerModal({
           });
         } else {
           // Fallback if popup blocked
-          window.open(file.url, '_blank');
+          window.open(urlToPrint, '_blank');
         }
       } else {
         // For other file types, try to print the current window
@@ -91,34 +164,70 @@ export default function DocumentViewerModal({
     } catch (error) {
       console.error('Print error:', error);
       // Fallback: open in new tab
-      window.open(file.url, '_blank');
+      window.open(urlToPrint, '_blank');
     }
   };
 
   const renderContent = () => {
+    if (loading) {
+      return (
+        <div className="flex flex-col items-center justify-center h-[70vh]">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9f1d35] mb-4"></div>
+          <p className="text-gray-500">Loading file...</p>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="flex flex-col items-center justify-center h-[70vh]">
+          <p className="text-red-500 mb-4">{error}</p>
+          <a
+            href={file.url!}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-4 py-2 bg-[#9f1d35] text-white rounded-lg hover:bg-[#8a1a2e] transition-colors"
+          >
+            Open in New Tab
+          </a>
+        </div>
+      );
+    }
+
+    if (!displayUrl) {
+      return (
+        <div className="flex flex-col items-center justify-center h-[70vh]">
+          <p className="text-gray-500">No file URL available</p>
+        </div>
+      );
+    }
+
     switch (fileType) {
       case 'image':
         return (
           <img
-            src={file.url!}
+            src={displayUrl}
             alt={file.name}
             className="max-w-full max-h-[70vh] mx-auto object-contain"
+            onError={() => setError('Failed to load image')}
           />
         );
       case 'pdf':
         return (
           <iframe
-            src={file.url!}
+            src={displayUrl}
             className="w-full h-[70vh] border-0"
             title={file.name}
+            onError={() => setError('Failed to load PDF')}
           />
         );
       case 'video':
         return (
           <video
-            src={file.url!}
+            src={displayUrl}
             controls
             className="max-w-full max-h-[70vh] mx-auto"
+            onError={() => setError('Failed to load video')}
           >
             Your browser does not support the video tag.
           </video>
@@ -126,9 +235,10 @@ export default function DocumentViewerModal({
       case 'text':
         return (
           <iframe
-            src={file.url!}
+            src={displayUrl}
             className="w-full h-[70vh] border-0"
             title={file.name}
+            onError={() => setError('Failed to load document')}
           />
         );
       default:

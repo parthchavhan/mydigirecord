@@ -25,13 +25,14 @@ export default function AdminDashboard() {
   // All hooks must be called before any conditional returns
   const {
     companies,
+    setCompanies,
     filteredCompanies,
     companySearchTerm,
     setCompanySearchTerm,
     loadCompanies,
   } = useAdminDashboard();
 
-  const companyHandlers = useCompanyHandlers(loadCompanies);
+  const companyHandlers = useCompanyHandlers(loadCompanies, setCompanies, companies);
   const modalState = useModalState();
 
   useEffect(() => {

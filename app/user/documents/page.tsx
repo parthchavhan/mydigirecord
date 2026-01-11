@@ -281,6 +281,31 @@ export default function DocumentsPage() {
   const navigateToBreadcrumb = async (index: number) => {
     if (!company) return;
 
+    // Clear verification for folders we are leaving
+    const removedFolders = currentPath.slice(index + 1);
+    if (removedFolders.length > 0) {
+      setVerifiedFolders(prev => {
+        const newMap = new Map(prev);
+        removedFolders.forEach(folder => {
+          if (folder.type === 'folder') {
+            newMap.delete(folder.id);
+          }
+        });
+        return newMap;
+      });
+      
+      // Also clear from unlockedFolders tracking
+      setUnlockedFolders(prev => {
+        const newMap = new Map(prev);
+        removedFolders.forEach(folder => {
+          if (folder.type === 'folder') {
+            newMap.delete(folder.id);
+          }
+        });
+        return newMap;
+      });
+    }
+
     const newPath = currentPath.slice(0, index + 1);
     setCurrentPath(newPath);
 
@@ -469,6 +494,44 @@ export default function DocumentsPage() {
     if (!lockingFolder) return false;
     const result = await lockFolder(lockingFolder.id, password);
     if (result.success) {
+      // Optimistically update UI immediately
+      setCurrentItems(prevItems => 
+        prevItems.map(item => 
+          item.id === lockingFolder.id 
+            ? { ...item, isLocked: true, password }
+            : item
+        )
+      );
+      setFilteredItems(prevItems => 
+        prevItems.map(item => 
+          item.id === lockingFolder.id 
+            ? { ...item, isLocked: true, password }
+            : item
+        )
+      );
+      
+      // Also update company state if we're at root level
+      if (currentFolderId === null && company) {
+        setCompany((prevCompany: any) => {
+          if (!prevCompany) return prevCompany;
+          return {
+            ...prevCompany,
+            folders: (prevCompany.folders || []).map((folder: any) =>
+              folder.id === lockingFolder.id
+                ? { ...folder, isLocked: true, password }
+                : folder
+            ),
+          };
+        });
+      }
+      
+      // Clear verification for this folder so it's locked immediately
+      setVerifiedFolders(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(lockingFolder.id);
+        return newMap;
+      });
+      
       toast.success('Folder locked successfully!');
       setLockingFolder(null);
       refreshView();
