@@ -153,11 +153,9 @@ export default function ViewUsersModal({
                         >
                           <option value="employee">Employee</option>
                           <option value="admin">Admin</option>
-                          <option value="super_admin">Super Admin</option>
                         </select>
                       ) : (
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                          user.role === 'super_admin' ? 'bg-purple-100 text-purple-800' :
                           user.role === 'admin' ? 'bg-blue-100 text-blue-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
