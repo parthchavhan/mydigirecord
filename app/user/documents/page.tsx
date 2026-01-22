@@ -402,11 +402,12 @@ export default function DocumentsPage() {
 
   const handleCreateFolder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!folderName.trim() || !company || currentFolderId === null) {
-      toast.error('Folder name is required and you must be in a folder');
+    if (!folderName.trim() || !company) {
+      toast.error('Folder name is required');
       return;
     }
 
+    // Allow creating folders at root level (currentFolderId can be null)
     const result = await createFolder(folderName, company.id, currentFolderId);
     if (result.success) {
       toast.success('Folder created successfully!');

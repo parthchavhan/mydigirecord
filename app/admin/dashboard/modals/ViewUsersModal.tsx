@@ -93,7 +93,7 @@ export default function ViewUsersModal({
       isOpen={isOpen}
       onClose={onClose}
       title={`Users for ${selectedCompany.name}`}
-      size="xl"
+      size="2xl"
     >
       <div className="space-y-4">
         {users.length === 0 ? (

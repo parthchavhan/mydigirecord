@@ -9,8 +9,18 @@ import { createAuditLog } from './audit';
 export async function createFolder(name: string, companyId: string, parentId: string | null = null, isLocked: boolean = false, password?: string) {
   try {
     const auth = await getAuth();
-    if (!auth || !auth.companyId || auth.companyId !== companyId) {
+    if (!auth) {
       return { success: false, error: 'Unauthorized' };
+    }
+
+    // Allow admin users (system admin or company admin) to create folders for any company
+    const isAdmin = auth.userId === 'admin' || auth.role === 'admin' || auth.role === 'super_admin';
+    
+    // For non-admin users, check if they belong to the company
+    if (!isAdmin) {
+      if (!auth.companyId || auth.companyId !== companyId) {
+        return { success: false, error: 'Unauthorized' };
+      }
     }
 
     // Set userId to null for admin users since they don't have a User record in the database

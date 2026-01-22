@@ -15,7 +15,7 @@ import FolderInfoModal from './modals/FolderInfoModal';
 import ViewUsersModal from './modals/ViewUsersModal';
 import LockFolderModal from './modals/LockFolderModal';
 import UnlockFolderModal from './modals/UnlockFolderModal';
-import { getAuth, checkIsSuperAdmin } from '@/app/actions/auth';
+import { getAuth, checkIsAdmin } from '@/app/actions/auth';
 import toast from 'react-hot-toast';
 
 export default function AdminDashboard() {
@@ -44,10 +44,10 @@ export default function AdminDashboard() {
           return;
         }
 
-        // Only super admin can access admin dashboard
-        const superAdminCheck = await checkIsSuperAdmin();
-        if (!superAdminCheck.success || !superAdminCheck.isSuperAdmin) {
-          toast.error('Access denied. Super admin privileges required.');
+        // Only admin can access admin dashboard
+        const adminCheck = await checkIsAdmin();
+        if (!adminCheck.success || !adminCheck.isAdmin) {
+          toast.error('Access denied. Admin privileges required.');
           router.push('/admin/login');
           return;
         }
