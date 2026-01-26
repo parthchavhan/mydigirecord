@@ -10,6 +10,7 @@ datasource db {
 model companies {
   id        String     @id
   name      String
+  type      String?     // school, college, university, other
   createdAt DateTime   @default(now())
   updatedAt DateTime
   folders   folders[]

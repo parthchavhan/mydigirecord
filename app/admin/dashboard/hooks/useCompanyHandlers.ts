@@ -14,6 +14,7 @@ export function useCompanyHandlers(
 ) {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [companyName, setCompanyName] = useState('');
+  const [companyType, setCompanyType] = useState('');
   const [folderName, setFolderName] = useState('');
   const [userName, setUserName] = useState('');
   const [userEmail, setUserEmail] = useState('');
@@ -38,11 +39,17 @@ export function useCompanyHandlers(
       return false;
     }
 
+    if (!companyType) {
+      toast.error('Company type is required');
+      return false;
+    }
+
     try {
-      const result = await createCompany(companyName);
+      const result = await createCompany(companyName, companyType);
       if (result.success) {
         toast.success('Company created successfully!');
         setCompanyName('');
+        setCompanyType('');
         await loadCompanies();
         return true;
       } else {
@@ -349,6 +356,8 @@ export function useCompanyHandlers(
     setSelectedCompany,
     companyName,
     setCompanyName,
+    companyType,
+    setCompanyType,
     folderName,
     setFolderName,
     userName,

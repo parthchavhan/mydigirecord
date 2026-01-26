@@ -4,11 +4,84 @@ import  prisma  from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { UTApi } from 'uploadthing/server';
 
-export async function createCompany(name: string) {
+// Define folder structures for each company type
+const UNIVERSITY_FOLDERS = [
+  'Student Records',
+  'Faculty & Staff Records',
+  'Examination Records',
+  'Academic & Curriculum',
+  'Research & Innovation',
+  'Governance & Compliance',
+  'Infrastructure & Assets',
+  'Financial Records',
+  'Emergency & Legal',
+  'Communication & Outreach',
+];
+
+const COLLEGE_FOLDERS = [
+  'Student Records',
+  'Faculty & Staff Records',
+  'Academic & Curriculum',
+  'Compliance & Accreditation',
+  'Infrastructure & Assets',
+  'Financial Records',
+  'Communication & Outreach',
+];
+
+const SCHOOL_FOLDERS = [
+  'Student Records',
+  'Staff Records',
+  'Compliance & Governance',
+  'Academic & Curriculum',
+  'Infrastructure & Assets',
+  'Financial Records',
+];
+
+async function createDefaultFolders(companyId: string, companyType: string) {
+  let foldersToCreate: string[] = [];
+
+  if (companyType === 'university') {
+    foldersToCreate = UNIVERSITY_FOLDERS;
+  } else if (companyType === 'college') {
+    foldersToCreate = COLLEGE_FOLDERS;
+  } else if (companyType === 'school') {
+    foldersToCreate = SCHOOL_FOLDERS;
+  }
+  // For 'other', no default folders are created
+
+  // Create all folders for the company directly using Prisma
+  // Skip audit logs for system-created folders during company setup
+  for (const folderName of foldersToCreate) {
+    try {
+      await prisma.folders.create({
+        data: {
+          id: crypto.randomUUID(),
+          name: folderName,
+          companyId,
+          parentId: null,
+          userId: null, // Created by system during company setup
+          isLocked: false,
+          password: null,
+          updatedAt: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error(`Error creating folder ${folderName}:`, error);
+      // Continue creating other folders even if one fails
+    }
+  }
+}
+
+export async function createCompany(name: string, type?: string) {
   try {
     // Validate input
     if (!name || !name.trim()) {
       return { success: false, error: 'Company name is required' };
+    }
+
+    // Validate type if provided
+    if (type && !['school', 'college', 'university', 'other'].includes(type)) {
+      return { success: false, error: 'Invalid company type' };
     }
 
     // Check if company with same name already exists
@@ -29,9 +102,15 @@ export async function createCompany(name: string) {
       data: {
         id: crypto.randomUUID(),
         name: name.trim(),
+        type: type || null,
         updatedAt: new Date(),
       },
     });
+
+    // Create default folders based on company type
+    if (type && (type === 'university' || type === 'college' || type === 'school')) {
+      await createDefaultFolders(company.id, type);
+    }
     
     revalidatePath('/admin/dashboard');
     return { success: true, company };

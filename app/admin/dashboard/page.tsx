@@ -128,9 +128,12 @@ export default function AdminDashboard() {
         onClose={() => {
           modalState.setShowCompanyModal(false);
           companyHandlers.setCompanyName('');
+          companyHandlers.setCompanyType('');
         }}
         companyName={companyHandlers.companyName}
         setCompanyName={companyHandlers.setCompanyName}
+        companyType={companyHandlers.companyType}
+        setCompanyType={companyHandlers.setCompanyType}
         onSubmit={async (e) => {
           const success = await companyHandlers.handleCreateCompany(e);
           return success || false;

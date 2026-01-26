@@ -1,6 +1,7 @@
 export interface Company {
   id: string;
   name: string;
+  type?: string | null;
   folders: Folder[];
   createdAt: string;
   updatedAt: string;

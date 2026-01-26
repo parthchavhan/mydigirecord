@@ -10,6 +10,8 @@ interface CompanyModalProps {
   onClose: () => void;
   companyName: string;
   setCompanyName: (name: string) => void;
+  companyType: string;
+  setCompanyType: (type: string) => void;
   onSubmit: (e: React.FormEvent) => Promise<boolean>;
 }
 
@@ -18,6 +20,8 @@ export default function CompanyModal({
   onClose,
   companyName,
   setCompanyName,
+  companyType,
+  setCompanyType,
   onSubmit,
 }: CompanyModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -66,6 +70,20 @@ export default function CompanyModal({
             required
             autoFocus
           />
+        </FormField>
+        <FormField label="Company Profile/Type" required>
+          <select
+            value={companyType}
+            onChange={(e) => setCompanyType(e.target.value)}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#9f1d35] focus:border-[#9f1d35] transition-colors bg-white"
+            required
+          >
+            <option value="">Select company type...</option>
+            <option value="school">School</option>
+            <option value="college">College</option>
+            <option value="university">University</option>
+            <option value="other">Other</option>
+          </select>
         </FormField>
       </ModalForm>
     </BaseModal>
