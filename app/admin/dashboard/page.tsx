@@ -117,6 +117,7 @@ export default function AdminDashboard() {
           onDeleteFolder={companyHandlers.handleDeleteFolder}
           onLockFolder={companyHandlers.handleLockFolder}
           onUnlockFolder={companyHandlers.handleUnlockFolder}
+          onToggleAiChat={companyHandlers.handleToggleAiChat}
           openFolderMenuId={companyHandlers.openFolderMenuId}
           setOpenFolderMenuId={companyHandlers.setOpenFolderMenuId}
         />

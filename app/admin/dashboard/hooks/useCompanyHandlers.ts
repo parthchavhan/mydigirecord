@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import type React from 'react';
 import toast from 'react-hot-toast';
-import { createCompany, deleteCompany } from '@/app/actions/company';
+import { createCompany, deleteCompany, updateCompanyAiChat } from '@/app/actions/company';
 import { createFolder, deleteFolder, updateFolder, getFolderStats, lockFolder, unlockFolder } from '@/app/actions/folder';
 import { createUser, getUsersByCompany, deleteUser, updateUser, updateUserRole } from '@/app/actions/user';
 import { getFoldersByCompany } from '@/app/actions/folder';
@@ -303,6 +303,22 @@ export function useCompanyHandlers(
     }
   };
 
+  const handleToggleAiChat = async (company: Company) => {
+    const enabled = !company.aiChatEnabled;
+    const result = await updateCompanyAiChat(company.id, enabled);
+    if (result.success) {
+      toast.success(enabled ? 'AI Chat enabled for this company' : 'AI Chat disabled for this company');
+      if (setCompanies && companies) {
+        setCompanies(prev =>
+          prev.map(c => (c.id === company.id ? { ...c, aiChatEnabled: enabled } : c))
+        );
+      }
+      loadCompanies();
+    } else {
+      toast.error(result.error || 'Failed to update AI Chat setting');
+    }
+  };
+
   const handleUnlocked = (folderId: string, password: string) => {
     // Track unlocked folder with timestamp
     setUnlockedFolders(prev => {
@@ -401,6 +417,7 @@ export function useCompanyHandlers(
     handleLockFolderConfirm,
     handleUnlockFolderConfirm,
     handleUnlocked,
+    handleToggleAiChat,
   };
 }
 

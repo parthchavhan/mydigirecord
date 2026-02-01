@@ -2,9 +2,7 @@ import './globals.css';
 import '@uploadthing/react/styles.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
-import { Toaster } from 'react-hot-toast';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import { ChatLayoutWrapper } from '@/components/ChatLayoutWrapper';
 import { NextSSRPlugin } from "@uploadthing/react/next-ssr-plugin";
 import { extractRouterConfig } from "uploadthing/server";
 import { ourFileRouter } from "@/app/api/uploadthing/core";
@@ -33,12 +31,7 @@ export default function RootLayout({
            */
           routerConfig={extractRouterConfig(ourFileRouter)}
         />
-        <Navbar />
-        <main className="min-h-screen">
-          {children}
-        </main>
-        <Footer />
-        <Toaster position="top-right" />
+        <ChatLayoutWrapper>{children}</ChatLayoutWrapper>
       </body>
     </html>
   );

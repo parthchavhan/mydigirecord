@@ -2,16 +2,19 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Building2, ArrowLeft, File, Folder, HardDrive, Users, Search } from 'lucide-react';
+import { Building2, ArrowLeft, File, Folder, HardDrive, Users, Search, MessageCircle } from 'lucide-react';
 import { getAuth } from '@/app/actions/auth';
-import { getCompany } from '@/app/actions/company';
+import { getCompany, updateCompanyAiChat } from '@/app/actions/company';
 import { getUserStatsByCompany } from '@/app/actions/user';
 import { formatStorage } from '@/lib/utils';
+import { useChatContext } from '@/context/ChatContext';
 import Link from 'next/link';
+import toast from 'react-hot-toast';
 
 export default function CompanyDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const { setSuggestedName } = useChatContext();
   const companyId = params.id as string;
   const [company, setCompany] = useState<any | null>(null);
   const [userStats, setUserStats] = useState<any[]>([]);
@@ -19,6 +22,13 @@ export default function CompanyDetailPage() {
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [filterBy, setFilterBy] = useState<'all' | 'files' | 'folders' | 'storage'>('all');
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (company?.name) {
+      setSuggestedName(company.name);
+    }
+    return () => setSuggestedName(null);
+  }, [company?.name, setSuggestedName]);
 
   useEffect(() => {
     const loadData = async () => {
@@ -118,6 +128,34 @@ export default function CompanyDetailPage() {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-6 lg:py-8">
+        {/* AI Chat control */}
+        <div className="mb-6 sm:mb-8 flex flex-wrap items-center gap-4">
+          <div className="flex items-center gap-3 bg-white rounded-lg shadow px-4 py-3">
+            <MessageCircle className="w-5 h-5 text-[#9f1d35]" />
+            <span className="text-sm font-medium text-gray-700">AI Chat for company users</span>
+            <button
+              onClick={async () => {
+                const enabled = !company.aiChatEnabled;
+                const result = await updateCompanyAiChat(company.id, enabled);
+                if (result.success) {
+                  setCompany((prev: typeof company | null) => (prev ? { ...prev, aiChatEnabled: enabled } : prev));
+                  toast.success(enabled ? 'AI Chat enabled' : 'AI Chat disabled');
+                } else {
+                  toast.error(result.error || 'Failed to update');
+                }
+              }}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[#9f1d35] focus:ring-offset-2 ${company.aiChatEnabled ? 'bg-[#9f1d35]' : 'bg-gray-200'}`}
+              role="switch"
+              aria-checked={company.aiChatEnabled}
+            >
+              <span
+                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${company.aiChatEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}
+              />
+            </button>
+            <span className="text-sm text-gray-500">{company.aiChatEnabled ? 'On' : 'Off'}</span>
+          </div>
+        </div>
+
         {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
           <div className="bg-white rounded-lg shadow p-4 sm:p-6">

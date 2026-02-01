@@ -2,8 +2,9 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Building2, FolderPlus, Plus, Search, Eye, UserPlus, Trash2, MoreVertical, Edit, Info, Users, Lock, Unlock } from 'lucide-react';
+import { Building2, FolderPlus, Plus, Search, Eye, UserPlus, Trash2, MoreVertical, Edit, Info, Users, Lock, Unlock, MessageCircle } from 'lucide-react';
 import Link from 'next/link';
+import BaseModal from './BaseModal';
 import type { Company } from '../types';
 
 interface CompaniesSectionProps {
@@ -22,6 +23,7 @@ interface CompaniesSectionProps {
   onDeleteFolder: (id: string, name: string) => void;
   onLockFolder?: (folder: any) => void;
   onUnlockFolder?: (folder: any) => void;
+  onToggleAiChat?: (company: Company) => void;
   openFolderMenuId: string | null;
   setOpenFolderMenuId: (id: string | null) => void;
 }
@@ -42,9 +44,13 @@ export default function CompaniesSection({
   onDeleteFolder,
   onLockFolder,
   onUnlockFolder,
+  onToggleAiChat,
   openFolderMenuId,
   setOpenFolderMenuId,
 }: CompaniesSectionProps) {
+  const [openCompanyMenuId, setOpenCompanyMenuId] = useState<string | null>(null);
+  const [aiChatDialogCompany, setAiChatDialogCompany] = useState<Company | null>(null);
+
   return (
     <div className="mt-12">
       <div className="flex justify-between items-center mb-6">
@@ -100,42 +106,87 @@ export default function CompaniesSection({
                     {company.folders.length} folder{company.folders.length !== 1 ? 's' : ''}
                   </p>
                 </div>
-                <div className="flex space-x-2">
-                  <Link
-                    href={`/admin/company/${company.id}`}
-                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                    title="View Details"
-                  >
-                    <Eye className="w-5 h-5" />
-                  </Link>
+                <div className="relative">
                   <button
-                    onClick={() => onViewUsers(company)}
-                    className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
-                    title="View Users"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setOpenCompanyMenuId(openCompanyMenuId === company.id ? null : company.id);
+                    }}
+                    className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg border border-gray-200"
+                    title="Options"
                   >
-                    <Users className="w-5 h-5" />
+                    <MoreVertical className="w-5 h-5" />
                   </button>
-                  <button
-                    onClick={() => onShowUserModal(company)}
-                    className="p-2 text-[#9f1d35] hover:bg-[#9f1d35]/10 rounded-lg"
-                    title="Add User"
-                  >
-                    <UserPlus className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => onShowFolderModal(company)}
-                    className="p-2 text-[#9f1d35] hover:bg-[#9f1d35]/10 rounded-lg"
-                    title="Add Folder"
-                  >
-                    <FolderPlus className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={() => onDeleteCompany(company.id, company.name)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                    title="Delete Company"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                  {openCompanyMenuId === company.id && (
+                    <>
+                      <div
+                        className="fixed inset-0 z-10"
+                        onClick={() => setOpenCompanyMenuId(null)}
+                      />
+                      <div className="absolute right-0 top-full mt-1 w-52 bg-white rounded-lg shadow-lg border border-gray-200 z-20 py-1">
+                        <Link
+                          href={`/admin/company/${company.id}`}
+                          onClick={() => setOpenCompanyMenuId(null)}
+                          className="flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span>View Details</span>
+                        </Link>
+                        <button
+                          onClick={() => {
+                            onViewUsers(company);
+                            setOpenCompanyMenuId(null);
+                          }}
+                          className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          <Users className="w-4 h-4" />
+                          <span>View Users</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            onShowUserModal(company);
+                            setOpenCompanyMenuId(null);
+                          }}
+                          className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          <UserPlus className="w-4 h-4" />
+                          <span>Add User</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            onShowFolderModal(company);
+                            setOpenCompanyMenuId(null);
+                          }}
+                          className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                        >
+                          <FolderPlus className="w-4 h-4" />
+                          <span>Add Folder</span>
+                        </button>
+                        {onToggleAiChat && (
+                          <button
+                            onClick={() => {
+                              setAiChatDialogCompany(company);
+                              setOpenCompanyMenuId(null);
+                            }}
+                            className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                          >
+                            <MessageCircle className="w-4 h-4" />
+                            <span>AI Chat</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => {
+                            onDeleteCompany(company.id, company.name);
+                            setOpenCompanyMenuId(null);
+                          }}
+                          className="w-full flex items-center space-x-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete Company</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -241,6 +292,50 @@ export default function CompaniesSection({
           ))}
         </div>
       )}
+
+      {/* AI Chat settings dialog */}
+      <BaseModal
+        isOpen={aiChatDialogCompany !== null}
+        onClose={() => setAiChatDialogCompany(null)}
+        title={aiChatDialogCompany ? `AI Chat – ${aiChatDialogCompany.name}` : 'AI Chat'}
+        size="sm"
+      >
+        {aiChatDialogCompany && onToggleAiChat ? (() => {
+          const currentCompany = companies.find((c) => c.id === aiChatDialogCompany.id) ?? aiChatDialogCompany;
+          const enabled = currentCompany.aiChatEnabled ?? false;
+          return (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600">
+                Allow users in this company to see and use the AI chat assistant for generating letters, emails, and documents.
+              </p>
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-sm font-medium text-gray-700">AI Chat for company users</span>
+                <button
+                  type="button"
+                  onClick={() => onToggleAiChat(currentCompany)}
+                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-[#9f1d35] focus:ring-offset-2 ${enabled ? 'bg-[#9f1d35]' : 'bg-gray-200'}`}
+                  role="switch"
+                  aria-checked={enabled}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition ${enabled ? 'translate-x-5' : 'translate-x-0.5'}`}
+                  />
+                </button>
+              </div>
+              <p className="text-xs text-gray-500">{enabled ? 'On – users will see the AI chat button.' : 'Off – AI chat is hidden for this company.'}</p>
+              <div className="flex justify-end pt-2">
+                <button
+                  type="button"
+                  onClick={() => setAiChatDialogCompany(null)}
+                  className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 text-sm font-medium"
+                >
+                  Done
+                </button>
+              </div>
+            </div>
+          );
+        })() : null}
+      </BaseModal>
     </div>
   );
 }

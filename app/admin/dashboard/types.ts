@@ -2,6 +2,7 @@ export interface Company {
   id: string;
   name: string;
   type?: string | null;
+  aiChatEnabled?: boolean;
   folders: Folder[];
   createdAt: string;
   updatedAt: string;

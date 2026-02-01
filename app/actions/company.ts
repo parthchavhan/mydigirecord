@@ -257,6 +257,21 @@ export async function getCompany(id: string) {
   }
 }
 
+export async function updateCompanyAiChat(companyId: string, aiChatEnabled: boolean) {
+  try {
+    await prisma.companies.update({
+      where: { id: companyId },
+      data: { aiChatEnabled, updatedAt: new Date() },
+    });
+    revalidatePath('/admin/dashboard');
+    revalidatePath(`/admin/company/${companyId}`);
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating company AI chat setting:', error);
+    return { success: false, error: 'Failed to update setting' };
+  }
+}
+
 export async function deleteCompany(id: string) {
   try {
     // Get all files in all folders of this company before deletion
