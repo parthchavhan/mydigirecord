@@ -57,8 +57,8 @@ export default function DocumentViewerModal({
       } catch (err) {
         console.error('Error fetching file:', err);
         setError('Failed to load file. Please try downloading it instead.');
-        // Fallback to original URL if blob fetch fails
-        setBlobUrl(file.url!);
+        // Do NOT set blobUrl to file.url - that would load the direct URL in the
+        // iframe and trigger download when the server sends Content-Disposition: attachment
       } finally {
         setLoading(false);
       }
@@ -90,17 +90,36 @@ export default function DocumentViewerModal({
     return null;
   }
 
-  const getFileType = (mimeType?: string | null) => {
+  // Office/binary docs (docx, xlsx, etc.) must not be shown in an iframe - the browser
+  // would download them instead of rendering. Only use 'text' for types the browser can display.
+  const isOfficeOrBinaryDoc = (mimeType: string) => {
+    const office = [
+      'application/vnd.openxmlformats-officedocument', // docx, xlsx, pptx
+      'application/vnd.ms-excel',
+      'application/msword',
+      'application/vnd.ms-powerpoint',
+    ];
+    return office.some((p) => mimeType.startsWith(p));
+  };
+
+  const getFileType = (mimeType?: string | null, fileName?: string) => {
+    const ext = fileName?.toLowerCase().split('.').pop() ?? '';
+    const officeExts = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'odt', 'ods', 'odp'];
+    if (officeExts.includes(ext)) return 'unknown';
+
     if (!mimeType) return 'unknown';
     if (mimeType.startsWith('image/')) return 'image';
     if (mimeType.startsWith('video/')) return 'video';
     if (mimeType === 'application/pdf') return 'pdf';
-    if (mimeType.includes('text') || mimeType.includes('document')) return 'text';
+    if (isOfficeOrBinaryDoc(mimeType)) return 'unknown';
+    if (mimeType.startsWith('text/') || mimeType === 'application/json') return 'text';
     return 'unknown';
   };
 
-  const fileType = getFileType(file.mimeType);
-  const displayUrl = blobUrl || file.url;
+  const fileType = getFileType(file.mimeType, file.name);
+  // Only use blob URL for preview - never the direct file.url in iframe/img,
+  // or the server's Content-Disposition: attachment will trigger a download on open
+  const displayUrl = blobUrl;
 
   const handleDownload = async () => {
     if (!file.url) {
@@ -139,10 +158,8 @@ export default function DocumentViewerModal({
   };
 
   const handlePrint = () => {
-    const urlToPrint = blobUrl || file.url;
-    if (!urlToPrint) {
-      return;
-    }
+    if (!blobUrl) return;
+    const urlToPrint = blobUrl;
 
     try {
       if (fileType === 'pdf' || fileType === 'image') {
@@ -169,7 +186,9 @@ export default function DocumentViewerModal({
   };
 
   const renderContent = () => {
-    if (loading) {
+    // Show loading when fetching or when we have a file but no blob yet (prevents
+    // flashing direct URL in iframe, which would trigger download)
+    if (loading || (file?.url && !blobUrl && !error)) {
       return (
         <div className="flex flex-col items-center justify-center h-[70vh]">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#9f1d35] mb-4"></div>

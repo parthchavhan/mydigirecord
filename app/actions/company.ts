@@ -1,8 +1,35 @@
 'use server';
 
-import  prisma  from '@/lib/prisma';
+import fs from 'fs';
+import path from 'path';
+
+import prisma from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 import { UTApi } from 'uploadthing/server';
+
+const TEMPLATE_FOLDER_NAME = 'Template';
+
+type TemplateFileEntry = { name: string; key: string | null; url: string | null; size: number };
+
+function getTemplateEntries(): TemplateFileEntry[] {
+  const templatePath = path.join(process.cwd(), 'public', 'template.json');
+  try {
+    const raw = fs.readFileSync(templatePath, 'utf-8');
+    const data = JSON.parse(raw) as TemplateFileEntry[];
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
+function getTemplateFileKeys(): Set<string> {
+  const entries = getTemplateEntries();
+  const keys = new Set<string>();
+  for (const e of entries) {
+    if (e.key) keys.add(e.key);
+  }
+  return keys;
+}
 
 // Define folder structures for each company type
 const UNIVERSITY_FOLDERS = [
@@ -72,6 +99,43 @@ async function createDefaultFolders(companyId: string, companyType: string) {
   }
 }
 
+async function createTemplateFolderWithFiles(companyId: string) {
+  const templateFolderId = crypto.randomUUID();
+  await prisma.folders.create({
+    data: {
+      id: templateFolderId,
+      name: TEMPLATE_FOLDER_NAME,
+      companyId,
+      parentId: null,
+      userId: null,
+      isLocked: false,
+      password: null,
+      updatedAt: new Date(),
+    },
+  });
+
+  const entries = getTemplateEntries();
+  const now = new Date();
+  for (const entry of entries) {
+    try {
+      await prisma.files.create({
+        data: {
+          id: crypto.randomUUID(),
+          name: entry.name,
+          folderId: templateFolderId,
+          key: entry.key ?? undefined,
+          url: entry.url ?? undefined,
+          size: entry.size ?? 0,
+          userId: null,
+          updatedAt: now,
+        },
+      });
+    } catch (error) {
+      console.error(`Error creating template file ${entry.name}:`, error);
+    }
+  }
+}
+
 export async function createCompany(name: string, type?: string) {
   try {
     // Validate input
@@ -107,11 +171,12 @@ export async function createCompany(name: string, type?: string) {
       },
     });
 
-    // Create default folders based on company type
+    // Create default folders and Template folder (with template files) for school/college/university
     if (type && (type === 'university' || type === 'college' || type === 'school')) {
       await createDefaultFolders(company.id, type);
+      await createTemplateFolderWithFiles(company.id);
     }
-    
+
     revalidatePath('/admin/dashboard');
     return { success: true, company };
   } catch (error: any) {
@@ -244,23 +309,21 @@ export async function deleteCompany(id: string) {
       return fileKeys;
     };
 
-    // Get all file keys before deletion
-    const fileKeys = await getAllFilesInCompany(id);
+    // Get all file keys before deletion (exclude shared template keys - do not delete from UploadThing)
+    const allFileKeys = await getAllFilesInCompany(id);
+    const templateKeys = getTemplateFileKeys();
+    const fileKeysToDelete = allFileKeys.filter((key) => !templateKeys.has(key));
 
-    // Delete files from UploadThing if any exist
-    if (fileKeys.length > 0) {
+    if (fileKeysToDelete.length > 0) {
       try {
         const utapi = new UTApi();
-        // Delete all files in parallel
         await Promise.all(
-          fileKeys.map((key) => utapi.deleteFiles(key).catch((err) => {
+          fileKeysToDelete.map((key) => utapi.deleteFiles(key).catch((err) => {
             console.error(`Error deleting file ${key} from UploadThing:`, err);
-            // Continue even if individual file deletion fails
           }))
         );
       } catch (uploadThingError) {
         console.error('Error deleting files from UploadThing:', uploadThingError);
-        // Continue with company deletion even if UploadThing deletion fails
       }
     }
 
