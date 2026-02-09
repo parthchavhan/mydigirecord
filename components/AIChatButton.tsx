@@ -19,6 +19,15 @@ type Message = {
   text: string;
 };
 
+const MAX_HISTORY_MESSAGES = 8;
+const MAX_MESSAGE_CHARS = 1200;
+
+function trimMessage(text: string): string {
+  if (text.length <= MAX_MESSAGE_CHARS) return text;
+  // Keep the most recent part of the message, which is usually most relevant.
+  return text.slice(-MAX_MESSAGE_CHARS);
+}
+
 function stripMarkdown(text: string): string {
   return text
     .replace(/\*\*([^*]+)\*\*/g, '$1')
@@ -28,7 +37,7 @@ function stripMarkdown(text: string): string {
 }
 
 const WELCOME =
-  "Hi! I'm the Mendora Box AI. I can help you write leave applications and other letters. I'll ask for your name, class, roll number, and dates, then generate a ready-to-use letter. What would you like to write?";
+  "Hi! I'm the Mendora Box AI. I can help you write leave applications and other letters. I'll ask for your name, designation, institution, and dates, then generate a ready-to-use letter. What would you like to write?";
 
 export function AIChatButton() {
   const { suggestedName } = useChatContext();
@@ -38,7 +47,20 @@ export function AIChatButton() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [rateLimitCooldown, setRateLimitCooldown] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (rateLimitCooldown <= 0) return;
+    const t = setInterval(() => {
+      setRateLimitCooldown((c) => {
+        const next = c - 1;
+        if (next <= 0) clearInterval(t);
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(t);
+  }, [rateLimitCooldown]);
 
   const copyToClipboard = useCallback(async (id: string, text: string) => {
     const plain = stripMarkdown(text);
@@ -72,7 +94,7 @@ export function AIChatButton() {
 
   async function handleSend() {
     const text = input.trim();
-    if (!text || loading) return;
+    if (!text || loading || rateLimitCooldown > 0) return;
 
     const userMsg: Message = {
       id: `user-${Date.now()}`,
@@ -84,12 +106,17 @@ export function AIChatButton() {
     setLoading(true);
 
     try {
-      const history = [...messages, userMsg]
+      const fullHistory = [...messages, userMsg]
         .filter((m) => m.id !== 'welcome' || m.role === 'model')
         .map((m) => ({
           role: m.role as 'user' | 'model',
-          parts: [{ text: m.text }],
+          parts: [{ text: trimMessage(m.text) }],
         }));
+
+      const history =
+        fullHistory.length > MAX_HISTORY_MESSAGES
+          ? fullHistory.slice(-MAX_HISTORY_MESSAGES)
+          : fullHistory;
 
       const res = await fetch('/api/chat', {
         method: 'POST',
@@ -103,10 +130,12 @@ export function AIChatButton() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        const friendly =
-          res.status === 429
-            ? 'Rate limit reached. Please try again in a moment.'
-            : 'Something went wrong. Please try again.';
+        const is429 = res.status === 429;
+        if (is429) setRateLimitCooldown(15);
+        const serverMessage = typeof data?.error === 'string' ? data.error : null;
+        const friendly = is429
+          ? 'Rate limit reached. You can try again in 15 seconds.'
+          : serverMessage || 'Something went wrong. Please try again.';
         setMessages((prev) => [
           ...prev,
           { id: `err-${Date.now()}`, role: 'model', text: friendly },
@@ -156,7 +185,7 @@ export function AIChatButton() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent
           side="right"
-          className="flex h-full max-h-dvh w-full max-w-md flex-col gap-0 border-l border-border bg-background p-0 sm:max-w-md"
+          className="flex h-full max-h-dvh w-full max-w-md flex-col gap-0 overflow-hidden border-l border-border bg-background p-0 sm:max-w-md"
         >
           <SheetHeader className="shrink-0 border-b border-border bg-background px-4 py-3">
             <SheetTitle className="flex items-center gap-2 text-base font-semibold text-foreground">
@@ -165,7 +194,7 @@ export function AIChatButton() {
             </SheetTitle>
           </SheetHeader>
 
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+          <div className="h-0 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-3">
             <div className="flex flex-col gap-3 pb-4">
               {messages.map((m) => (
                 <div
@@ -213,9 +242,18 @@ export function AIChatButton() {
           </div>
 
           <div className="shrink-0 border-t border-border bg-background p-3">
+            {rateLimitCooldown > 0 && (
+              <p className="mb-2 text-center text-xs text-muted-foreground">
+                Rate limited. Try again in {rateLimitCooldown}s.
+              </p>
+            )}
             <div className="flex items-end gap-2">
               <Textarea
-                placeholder="Ask for a letter, email, or any text…"
+                placeholder={
+                  rateLimitCooldown > 0
+                    ? `Wait ${rateLimitCooldown}s to send…`
+                    : 'Ask for a letter, email, or any text…'
+                }
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => {
@@ -226,12 +264,12 @@ export function AIChatButton() {
                 }}
                 rows={2}
                 className="min-h-[52px] max-h-32 flex-1 resize-none py-3"
-                disabled={loading}
+                disabled={loading || rateLimitCooldown > 0}
               />
               <Button
                 type="button"
                 onClick={handleSend}
-                disabled={loading || !input.trim()}
+                disabled={loading || !input.trim() || rateLimitCooldown > 0}
                 className="h-[52px] w-[52px] shrink-0 rounded-lg"
                 aria-label="Send"
               >
