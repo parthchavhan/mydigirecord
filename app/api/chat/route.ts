@@ -43,36 +43,14 @@ export async function POST(req: Request) {
       }));
 
     const ai = new GoogleGenAI({ apiKey });
-    const stream = await ai.models.generateContentStream({
-      model: "gemini-3-flash-preview",
+    const response = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
       config: { systemInstruction },
       contents: limited,
     });
 
-    const encoder = new TextEncoder();
-    const readable = new ReadableStream({
-      async start(controller) {
-        try {
-          for await (const chunk of stream) {
-            const delta = chunk.text ?? '';
-            if (delta) controller.enqueue(encoder.encode(JSON.stringify({ text: delta }) + '\n'));
-          }
-        } catch (e) {
-          const err = e instanceof Error ? e.message : String(e);
-          if (err.includes('429') || (e as { status?: number })?.status === 429) {
-            controller.enqueue(encoder.encode(JSON.stringify({ error: 'Rate limit reached. Please wait a minute and try again.' }) + '\n'));
-          } else {
-            controller.enqueue(encoder.encode(JSON.stringify({ error: 'Something went wrong. Please try again.' }) + '\n'));
-          }
-        } finally {
-          controller.close();
-        }
-      },
-    });
-
-    return new Response(readable, {
-      headers: { 'Content-Type': 'application/x-ndjson' },
-    });
+    const text = response.text ?? '';
+    return NextResponse.json({ text });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     if (msg.includes('429') || (err as { status?: number })?.status === 429) {
