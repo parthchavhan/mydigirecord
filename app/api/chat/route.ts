@@ -10,6 +10,18 @@ const SYSTEM =
   'Principals, HODs, and deans typically write: notices (e.g. holiday notices, "3 days holidays for this class"), announcements, circulars, and emails to staff or students. Ask for: designation, institution/department, type of notice (holiday, event, announcement, etc.), dates if relevant, and any details (e.g. which class, reason). Then generate the notice/announcement/email in plain text—no markdown. Keep replies short; only the final document is long and formal.\n\n' +
   'Teachers may also ask for leave applications: collect full name, designation, institution, start date, end date, and reason, then generate the letter. Use PLAIN TEXT only—no markdown.';
 
+function getErrorStatus(err: unknown): number | undefined {
+  if (err === null || typeof err !== 'object') return undefined;
+  const o = err as Record<string, unknown>;
+  if (typeof o.status === 'number') return o.status;
+  if (typeof o.statusCode === 'number') return o.statusCode;
+  const res = o.response as Record<string, unknown> | undefined;
+  if (res && typeof res === 'object' && typeof (res as { status?: number }).status === 'number') {
+    return (res as { status: number }).status;
+  }
+  return undefined;
+}
+
 export async function POST(req: Request) {
   try {
     const { messages, context } = (await req.json()) as {
@@ -29,43 +41,46 @@ export async function POST(req: Request) {
       );
     }
 
-    const systemInstruction = context?.suggestedName?.trim()
-      ? SYSTEM + `\n\nSuggested name (use if user doesn't say otherwise): ${context.suggestedName.trim()}.`
-      : SYSTEM;
+    // Build a single plain-text prompt, like the official examples:
+    // https://ai.google.dev/gemini-api/docs/text-generation#javascript
+    const suggested = context?.suggestedName?.trim();
+    const lastUserText =
+      messages
+        .filter((m) => m.role === 'user')
+        .map((m) => (m.parts[0]?.text ?? '').trim())
+        .filter(Boolean)
+        .pop() ?? '';
 
-    const limited = messages
-      .slice(-8)
-      .map((m) => ({
-        role: m.role,
-        parts: m.parts.map((p) => ({
-          text: (p.text ?? '').slice(-1200),
-        })),
-      }));
+    const prompt =
+      SYSTEM +
+      (suggested
+        ? `\n\nSuggested name (use if user doesn't say otherwise): ${suggested}.`
+        : '') +
+      (lastUserText ? `\n\nUser request:\n${lastUserText}` : '');
 
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      config: { systemInstruction },
-      contents: limited,
+      contents: prompt,
     });
 
     const text = response.text ?? '';
     return NextResponse.json({ text });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes('429') || (err as { status?: number })?.status === 429) {
+    const status = getErrorStatus(err);
+    if (status === 429) {
       return NextResponse.json(
         { error: 'Rate limit reached. Please wait a minute and try again.' },
         { status: 429 }
       );
     }
-    if (msg.includes('404') || (err as { status?: number })?.status === 404) {
+    if (status === 404) {
       return NextResponse.json(
         { error: 'Model not available. Please try again later.' },
         { status: 404 }
       );
     }
-    console.error('Chat API error:', msg);
+    console.error('Chat API error:', err);
     return NextResponse.json(
       { error: 'Something went wrong. Please try again.' },
       { status: 500 }
