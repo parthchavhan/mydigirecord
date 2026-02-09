@@ -1,136 +1,93 @@
 import { GoogleGenAI } from '@google/genai';
 import { NextResponse } from 'next/server';
 
-const BASE_SYSTEM =
-  'You are the AI agent of Mendora Box. You help users generate letters, formal text, emails, and other documents.';
+// Allow up to 60s on Vercel Pro (Hobby has lower limits)
+export const maxDuration = 60;
 
-const LEAVE_APPLICATION_RULES = `
-This app is for principals, HODs, deans, and teachers. Do NOT ask for class, grade, or roll number.
-
-For leave applications (e.g. school/college leave, mourning leave):
-1. First collect all required details before generating the letter. Do not generate the letter until you have: full name, designation (e.g. Principal, HOD, Dean, Teacher), institution/department name, start date, end date, and reason (if not already given).
-2. Then ask one by one: Designation (Principal / HOD / Dean / Teacher), Institution or department name, Start date of leave, End date of leave (if not already provided).
-3. Once you have all details, generate the leave application letter addressed appropriately (e.g. To the management / To the Chairman / To the Vice Chancellor).
-4. In your replies and in the generated letter: use PLAIN TEXT ONLY. Do not use markdown: no asterisks (* or **), no bold/italic symbols, no bullet points with * or -. Use simple line breaks and clear formatting. The generated letter should look like a real letter that can be copied as-is.
-5. Keep your conversational replies short. Only the final letter should be long and formal.`;
-
-function buildSystemInstruction(suggestedName: string | null): string {
-  let instruction = BASE_SYSTEM + '\n\n' + LEAVE_APPLICATION_RULES;
-  if (suggestedName?.trim()) {
-    instruction += `\n\nSuggested name from context (you may use it as the user's name if they do not specify otherwise): ${suggestedName.trim()}.`;
-  }
-  return instruction;
-}
-
-function getErrorStatus(err: unknown): number | undefined {
-  if (err === null || typeof err !== 'object') return undefined;
-  const o = err as Record<string, unknown>;
-  if (typeof o.status === 'number') return o.status;
-  if (typeof o.statusCode === 'number') return o.statusCode;
-  const res = o.response as Record<string, unknown> | undefined;
-  if (res && typeof res === 'object' && typeof (res as { status?: number }).status === 'number') {
-    return (res as { status: number }).status;
-  }
-  return undefined;
-}
+const SYSTEM =
+  'You are the AI agent of Mendora Box. You help users generate notices, announcements, emails, and other formal documents.\n\n' +
+  'This app is for principals, HODs, deans, and teachers.\n\n' +
+  'Principals, HODs, and deans typically write: notices (e.g. holiday notices, "3 days holidays for this class"), announcements, circulars, and emails to staff or students. Ask for: designation, institution/department, type of notice (holiday, event, announcement, etc.), dates if relevant, and any details (e.g. which class, reason). Then generate the notice/announcement/email in plain text—no markdown. Keep replies short; only the final document is long and formal.\n\n' +
+  'Teachers may also ask for leave applications: collect full name, designation, institution, start date, end date, and reason, then generate the letter. Use PLAIN TEXT only—no markdown.';
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as {
+    const { messages, context } = (await req.json()) as {
       messages: Array<{ role: 'user' | 'model'; parts: { text: string }[] }>;
       context?: { suggestedName?: string | null };
     };
-    const { messages, context } = body;
-    const suggestedName = context?.suggestedName ?? null;
 
     if (!messages?.length) {
-      return NextResponse.json(
-        { error: 'Messages are required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Messages are required' }, { status: 400 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey?.trim()) {
-      console.error('Chat API: GEMINI_API_KEY is not set (add it in Vercel → Settings → Environment Variables)');
+    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    if (!apiKey) {
       return NextResponse.json(
-        { error: 'Chat is not configured. Please add GEMINI_API_KEY in your deployment environment.' },
+        { error: 'Chat is not configured. Add GEMINI_API_KEY in your environment.' },
         { status: 500 }
       );
     }
 
-    const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
-    const systemInstruction = buildSystemInstruction(suggestedName ?? null);
+    const systemInstruction = context?.suggestedName?.trim()
+      ? SYSTEM + `\n\nSuggested name (use if user doesn't say otherwise): ${context.suggestedName.trim()}.`
+      : SYSTEM;
 
-    const MAX_MESSAGES = 8;
-    const MAX_PART_CHARS = 1200;
-
-    const limitedMessages = messages
-      .slice(-MAX_MESSAGES)
+    const limited = messages
+      .slice(-8)
       .map((m) => ({
         role: m.role,
-        parts: m.parts.map((p) => {
-          const text = p.text ?? '';
-          if (text.length <= MAX_PART_CHARS) return { text };
-          // Keep the most recent portion of the text, which tends to be most relevant.
-          return { text: text.slice(-MAX_PART_CHARS) };
-        }),
+        parts: m.parts.map((p) => ({
+          text: (p.text ?? '').slice(-1200),
+        })),
       }));
 
-    const callGemini = () =>
-      ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        config: { systemInstruction },
-        contents: limitedMessages.map((m) => ({
-          role: m.role === 'model' ? 'model' : 'user',
-          parts: m.parts,
-        })),
-      });
+    const ai = new GoogleGenAI({ apiKey });
+    const stream = await ai.models.generateContentStream({
+      model: "gemini-3-flash-preview",
+      config: { systemInstruction },
+      contents: limited,
+    });
 
-    let response;
-    try {
-      response = await callGemini();
-    } catch (firstErr: unknown) {
-      const status = getErrorStatus(firstErr);
-      if (status === 429) {
-        await new Promise((r) => setTimeout(r, 3000));
+    const encoder = new TextEncoder();
+    const readable = new ReadableStream({
+      async start(controller) {
         try {
-          response = await callGemini();
-        } catch (retryErr: unknown) {
-          const retryStatus = getErrorStatus(retryErr);
-          if (retryStatus === 429) {
-            console.warn('Chat API: rate limit (429) after retry');
-            return NextResponse.json(
-              { error: 'Rate limit reached. Please wait a minute and try again.' },
-              { status: 429 }
-            );
+          for await (const chunk of stream) {
+            const delta = chunk.text ?? '';
+            if (delta) controller.enqueue(encoder.encode(JSON.stringify({ text: delta }) + '\n'));
           }
-          throw retryErr;
+        } catch (e) {
+          const err = e instanceof Error ? e.message : String(e);
+          if (err.includes('429') || (e as { status?: number })?.status === 429) {
+            controller.enqueue(encoder.encode(JSON.stringify({ error: 'Rate limit reached. Please wait a minute and try again.' }) + '\n'));
+          } else {
+            controller.enqueue(encoder.encode(JSON.stringify({ error: 'Something went wrong. Please try again.' }) + '\n'));
+          }
+        } finally {
+          controller.close();
         }
-      } else {
-        throw firstErr;
-      }
-    }
+      },
+    });
 
-    const text = response.text ?? '';
-    return NextResponse.json({ text });
+    return new Response(readable, {
+      headers: { 'Content-Type': 'application/x-ndjson' },
+    });
   } catch (err: unknown) {
-    const status = getErrorStatus(err);
-    if (status === 429) {
-      console.warn('Chat API: rate limit (429)');
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes('429') || (err as { status?: number })?.status === 429) {
       return NextResponse.json(
         { error: 'Rate limit reached. Please wait a minute and try again.' },
         { status: 429 }
       );
     }
-    if (status === 404) {
-      console.warn('Chat API: model not found (404)');
+    if (msg.includes('404') || (err as { status?: number })?.status === 404) {
       return NextResponse.json(
         { error: 'Model not available. Please try again later.' },
         { status: 404 }
       );
     }
-    console.error('Chat API error:', err instanceof Error ? err.message : err);
+    console.error('Chat API error:', msg);
     return NextResponse.json(
       { error: 'Something went wrong. Please try again.' },
       { status: 500 }

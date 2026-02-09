@@ -37,7 +37,7 @@ function stripMarkdown(text: string): string {
 }
 
 const WELCOME =
-  "Hi! I'm the Mendora Box AI. I can help you write leave applications and other letters. I'll ask for your name, designation, institution, and dates, then generate a ready-to-use letter. What would you like to write?";
+  "Hi! I'm the Mendora Box AI. I can help you write notices (e.g. holiday notices, announcements), emails, and letters. Tell me what you need—e.g. '3 days holidays for this class', an announcement, or a leave letter—and I'll ask for the details and generate it. What would you like to write?";
 
 export function AIChatButton() {
   const { suggestedName } = useChatContext();
@@ -127,9 +127,8 @@ export function AIChatButton() {
         }),
       });
 
-      const data = await res.json().catch(() => ({}));
-
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         const is429 = res.status === 429;
         if (is429) setRateLimitCooldown(15);
         const serverMessage = typeof data?.error === 'string' ? data.error : null;
@@ -143,12 +142,52 @@ export function AIChatButton() {
         return;
       }
 
-      const modelMsg: Message = {
-        id: `model-${Date.now()}`,
-        role: 'model',
-        text: data.text ?? '',
-      };
-      setMessages((prev) => [...prev, modelMsg]);
+      const contentType = res.headers.get('Content-Type') ?? '';
+      if (contentType.includes('ndjson') && res.body) {
+        const modelId = `model-${Date.now()}`;
+        setMessages((prev) => [...prev, { id: modelId, role: 'model', text: '' }]);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let fullText = '';
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              try {
+                const obj = JSON.parse(line) as { text?: string; error?: string };
+                if (obj.error) {
+                  setMessages((prev) =>
+                    prev.map((m) => (m.id === modelId ? { ...m, text: obj.error! } : m))
+                  );
+                  return;
+                }
+                if (obj.text) {
+                  fullText += obj.text;
+                  setMessages((prev) =>
+                    prev.map((m) => (m.id === modelId ? { ...m, text: fullText } : m))
+                  );
+                }
+              } catch {
+                // skip malformed line
+              }
+            }
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setMessages((prev) => [
+          ...prev,
+          { id: `model-${Date.now()}`, role: 'model', text: data.text ?? '' },
+        ]);
+      }
     } catch {
       setMessages((prev) => [
         ...prev,
@@ -252,7 +291,7 @@ export function AIChatButton() {
                 placeholder={
                   rateLimitCooldown > 0
                     ? `Wait ${rateLimitCooldown}s to send…`
-                    : 'Ask for a letter, email, or any text…'
+                    : 'Ask for a notice, email, or letter…'
                 }
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
