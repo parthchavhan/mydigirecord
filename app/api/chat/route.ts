@@ -1,14 +1,17 @@
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { NextResponse } from 'next/server';
 
-// Allow up to 60s on Vercel Pro (Hobby has lower limits)
-export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+export const maxDuration = 30;
 
 const SYSTEM =
-  'You are the AI agent of Mendora Box. You help users generate notices, announcements, emails, and other formal documents.\n\n' +
-  'This app is for principals, HODs, deans, and teachers.\n\n' +
-  'Principals, HODs, and deans typically write: notices (e.g. holiday notices, "3 days holidays for this class"), announcements, circulars, and emails to staff or students. Ask for: designation, institution/department, type of notice (holiday, event, announcement, etc.), dates if relevant, and any details (e.g. which class, reason). Then generate the notice/announcement/email in plain text—no markdown. Keep replies short; only the final document is long and formal.\n\n' +
-  'Teachers may also ask for leave applications: collect full name, designation, institution, start date, end date, and reason, then generate the letter. Use PLAIN TEXT only—no markdown.';
+  'You are the Mendora Box AI. You generate notices, announcements, emails, and formal documents for principals, HODs, deans, and teachers.\n\n' +
+  'RULES:\n' +
+  '1. Use the FULL conversation. If the user already said their name (e.g. Parth Jain), designation (Principal/HOD), school name, or document type (holiday notice, etc.), use that. Do NOT ask again.\n' +
+  '2. If the user says "draft anything", "according to you", "just be fast", "use your judgment", or similar—fill in reasonable details yourself (e.g. school name, dates, reason) and GENERATE the document immediately. Do not ask more questions.\n' +
+  '3. Only ask for missing details when the user has given almost nothing. Once you have enough (name, designation, type of document, and at least one detail), generate the document.\n' +
+  '4. Output: PLAIN TEXT only, no markdown. Short replies when asking; the final document is the only long, formal block.';
 
 function getErrorStatus(err: unknown): number | undefined {
   if (err === null || typeof err !== 'object') return undefined;
@@ -33,45 +36,52 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Messages are required' }, { status: 400 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY?.trim();
+    const apiKey =
+      process.env.GEMINI_API_KEY?.trim() ||
+      process.env.GOOGLE_API_KEY?.trim();
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'Chat is not configured. Add GEMINI_API_KEY in your environment.' },
+        {
+          error:
+            'Chat is not configured. Set GEMINI_API_KEY or GOOGLE_API_KEY in Vercel → Settings → Environment Variables.',
+        },
         { status: 500 }
       );
     }
 
-    // Build a single plain-text prompt, like the official examples:
-    // https://ai.google.dev/gemini-api/docs/text-generation#javascript
     const suggested = context?.suggestedName?.trim();
-    const lastUserText =
-      messages
-        .filter((m) => m.role === 'user')
-        .map((m) => (m.parts[0]?.text ?? '').trim())
-        .filter(Boolean)
-        .pop() ?? '';
-
-    const prompt =
+    const systemInstruction =
       SYSTEM +
       (suggested
         ? `\n\nSuggested name (use if user doesn't say otherwise): ${suggested}.`
-        : '') +
-      (lastUserText ? `\n\nUser request:\n${lastUserText}` : '');
+        : '');
+
+    const MAX_MESSAGES = 10;
+    const MAX_PART_CHARS = 800;
+    const limited = messages
+      .slice(-MAX_MESSAGES)
+      .map((m) => ({
+        role: m.role,
+        parts: m.parts.map((p) => ({
+          text: (p.text ?? '').slice(-MAX_PART_CHARS),
+        })),
+      }));
 
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
-      contents: prompt,
       config: {
-        // Lower latency; "thinking" is on by default for Gemini 3 and adds delay
+        systemInstruction,
         thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
       },
+      contents: limited,
     });
 
     const text = response.text ?? '';
     return NextResponse.json({ text });
   } catch (err: unknown) {
     const status = getErrorStatus(err);
+    const msg = err instanceof Error ? err.message : String(err);
     if (status === 429) {
       return NextResponse.json(
         { error: 'Rate limit reached. Please wait a minute and try again.' },
@@ -84,7 +94,16 @@ export async function POST(req: Request) {
         { status: 404 }
       );
     }
-    console.error('Chat API error:', err);
+    if (status === 503 || msg.includes('503') || msg.includes('UNAVAILABLE')) {
+      return NextResponse.json(
+        {
+          error:
+            'Gemini is busy. Please try again in a moment.',
+        },
+        { status: 503 }
+      );
+    }
+    console.error('Chat API error:', status, msg, err);
     return NextResponse.json(
       { error: 'Something went wrong. Please try again.' },
       { status: 500 }
