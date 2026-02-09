@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel } from '@google/genai';
 import { NextResponse } from 'next/server';
 
 // Allow up to 60s on Vercel Pro (Hobby has lower limits)
@@ -62,6 +62,10 @@ export async function POST(req: Request) {
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: prompt,
+      config: {
+        // Lower latency; "thinking" is on by default for Gemini 3 and adds delay
+        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
+      },
     });
 
     const text = response.text ?? '';
