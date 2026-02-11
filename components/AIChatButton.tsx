@@ -7,6 +7,7 @@ import {
   SheetContent,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -49,6 +50,7 @@ export function AIChatButton() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [rateLimitCooldown, setRateLimitCooldown] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const requestInFlightRef = useRef(false);
 
   useEffect(() => {
     if (rateLimitCooldown <= 0) return;
@@ -99,7 +101,11 @@ export function AIChatButton() {
 
   async function handleSend() {
     const text = input.trim();
-    if (!text || loading || rateLimitCooldown > 0) return;
+    if (!text || loading || rateLimitCooldown > 0 || requestInFlightRef.current) return;
+
+    // Prevent duplicate requests
+    requestInFlightRef.current = true;
+    setLoading(true);
 
     const userMsg: Message = {
       id: `user-${Date.now()}`,
@@ -108,7 +114,6 @@ export function AIChatButton() {
     };
     setMessages((prev) => [...prev, userMsg]);
     setInput('');
-    setLoading(true);
 
     try {
       const fullHistory = [...messages, userMsg]
@@ -136,10 +141,11 @@ export function AIChatButton() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         const is429 = res.status === 429;
-        if (is429) setRateLimitCooldown(15);
+        // Increase cooldown to 60 seconds for rate limit errors
+        if (is429) setRateLimitCooldown(60);
         const serverMessage = typeof data?.error === 'string' ? data.error : null;
         const friendly = is429
-          ? 'Rate limit reached. You can try again in 15 seconds.'
+          ? 'Rate limit reached. Please wait a minute before trying again.'
           : serverMessage || 'Something went wrong. Please try again.';
         setMessages((prev) => [
           ...prev,
@@ -194,7 +200,8 @@ export function AIChatButton() {
           { id: `model-${Date.now()}`, role: 'model', text: data.text ?? '' },
         ]);
       }
-    } catch {
+    } catch (err) {
+      console.error('Chat error:', err);
       setMessages((prev) => [
         ...prev,
         {
@@ -205,6 +212,7 @@ export function AIChatButton() {
       ]);
     } finally {
       setLoading(false);
+      requestInFlightRef.current = false;
     }
   }
 
@@ -237,6 +245,9 @@ export function AIChatButton() {
               <MessageCircle className="h-5 w-5 text-primary" />
               Mendora Box AI
             </SheetTitle>
+            <SheetDescription className="sr-only">
+              AI assistant for generating notices, announcements, emails, and letters
+            </SheetDescription>
           </SheetHeader>
 
           <div className="h-0 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-3">
@@ -304,7 +315,9 @@ export function AIChatButton() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
-                    handleSend();
+                    if (!loading && !rateLimitCooldown && !requestInFlightRef.current) {
+                      handleSend();
+                    }
                   }
                 }}
                 rows={2}
@@ -313,8 +326,12 @@ export function AIChatButton() {
               />
               <Button
                 type="button"
-                onClick={handleSend}
-                disabled={loading || !input.trim() || rateLimitCooldown > 0}
+                onClick={() => {
+                  if (!loading && !rateLimitCooldown && !requestInFlightRef.current) {
+                    handleSend();
+                  }
+                }}
+                disabled={loading || !input.trim() || rateLimitCooldown > 0 || requestInFlightRef.current}
                 className="h-[52px] w-[52px] shrink-0 rounded-lg"
                 aria-label="Send"
               >
