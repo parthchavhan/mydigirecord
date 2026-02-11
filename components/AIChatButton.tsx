@@ -70,10 +70,15 @@ export function AIChatButton() {
   }, []);
 
   useEffect(() => {
-    fetch('/api/chat/status')
+    fetch('/api/chat/status', {
+      credentials: 'include',
+    })
       .then((res) => res.json())
       .then((data) => setAllowed(data.allowed === true))
-      .catch(() => setAllowed(false));
+      .catch((err) => {
+        console.error('Failed to check chat status:', err);
+        setAllowed(false);
+      });
   }, []);
 
   useEffect(() => {
@@ -121,6 +126,7 @@ export function AIChatButton() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           messages: history,
           context: suggestedName ? { suggestedName } : undefined,
