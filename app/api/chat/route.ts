@@ -16,12 +16,29 @@ const SYSTEM =
 function getErrorStatus(err: unknown): number | undefined {
   if (err === null || typeof err !== 'object') return undefined;
   const o = err as Record<string, unknown>;
+  
+  // Check for status directly
   if (typeof o.status === 'number') return o.status;
   if (typeof o.statusCode === 'number') return o.statusCode;
+  
+  // Check for status in response object
   const res = o.response as Record<string, unknown> | undefined;
   if (res && typeof res === 'object' && typeof (res as { status?: number }).status === 'number') {
     return (res as { status: number }).status;
   }
+  
+  // Check for status in error details (Gemini API format)
+  const details = o.details as Record<string, unknown> | undefined;
+  if (details && typeof details === 'object' && typeof (details as { status?: number }).status === 'number') {
+    return (details as { status: number }).status;
+  }
+  
+  // Check error message for rate limit indicators
+  const message = typeof o.message === 'string' ? o.message : String(err);
+  if (message.includes('429') || message.includes('rate limit') || message.includes('quota')) {
+    return 429;
+  }
+  
   return undefined;
 }
 
@@ -82,10 +99,33 @@ export async function POST(req: Request) {
   } catch (err: unknown) {
     const status = getErrorStatus(err);
     const msg = err instanceof Error ? err.message : String(err);
+    
+    // Log the full error for debugging
+    console.error('Gemini API error details:', {
+      status,
+      message: msg,
+      error: err,
+      errorType: err?.constructor?.name,
+    });
+    
     if (status === 429) {
+      // Extract retry-after information if available
+      const retryAfter = 
+        (err as { retryAfter?: number; details?: { retryAfter?: number } })?.retryAfter ||
+        (err as { details?: { retryAfter?: number } })?.details?.retryAfter ||
+        60; // Default to 60 seconds
+      
       return NextResponse.json(
-        { error: 'Rate limit reached. Please wait a minute and try again.' },
-        { status: 429 }
+        { 
+          error: `Rate limit reached. Please wait ${retryAfter} seconds before trying again.`,
+          retryAfter,
+        },
+        { 
+          status: 429,
+          headers: {
+            'Retry-After': String(retryAfter),
+          },
+        }
       );
     }
     if (status === 404) {

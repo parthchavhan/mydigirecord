@@ -141,11 +141,20 @@ export function AIChatButton() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         const is429 = res.status === 429;
-        // Increase cooldown to 60 seconds for rate limit errors
-        if (is429) setRateLimitCooldown(60);
+        
+        // Use retryAfter from response or Retry-After header, default to 60 seconds
+        if (is429) {
+          const retryAfterHeader = res.headers.get('Retry-After');
+          const retryAfter = 
+            (typeof data?.retryAfter === 'number' ? data.retryAfter : null) ||
+            (retryAfterHeader ? parseInt(retryAfterHeader, 10) : null) ||
+            60;
+          setRateLimitCooldown(retryAfter);
+        }
+        
         const serverMessage = typeof data?.error === 'string' ? data.error : null;
         const friendly = is429
-          ? 'Rate limit reached. Please wait a minute before trying again.'
+          ? serverMessage || 'Rate limit reached. Please wait before trying again.'
           : serverMessage || 'Something went wrong. Please try again.';
         setMessages((prev) => [
           ...prev,
