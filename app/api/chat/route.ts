@@ -13,6 +13,20 @@ const SYSTEM =
   '3. Only ask for missing details when the user has given almost nothing. Once you have enough (name, designation, type of document, and at least one detail), generate the document.\n' +
   '4. Output: PLAIN TEXT only, no markdown. Short replies when asking; the final document is the only long, formal block.';
 
+function parseGeminiErrorMessage(err: unknown): string | null {
+  try {
+    const msg = err instanceof Error ? err.message : String(err);
+    // Try to parse JSON error message from Gemini API
+    const parsed = JSON.parse(msg);
+    if (parsed?.error?.message) {
+      return parsed.error.message;
+    }
+  } catch {
+    // Not JSON, try to extract from string
+  }
+  return null;
+}
+
 function getErrorStatus(err: unknown): number | undefined {
   if (err === null || typeof err !== 'object') return undefined;
   const o = err as Record<string, unknown>;
@@ -33,9 +47,20 @@ function getErrorStatus(err: unknown): number | undefined {
     return (details as { status: number }).status;
   }
   
+  // Try to parse nested error from Gemini API
+  try {
+    const msg = typeof o.message === 'string' ? o.message : String(err);
+    const parsed = JSON.parse(msg);
+    if (parsed?.error?.code && typeof parsed.error.code === 'number') {
+      return parsed.error.code;
+    }
+  } catch {
+    // Not JSON, continue
+  }
+  
   // Check error message for rate limit indicators
   const message = typeof o.message === 'string' ? o.message : String(err);
-  if (message.includes('429') || message.includes('rate limit') || message.includes('quota')) {
+  if (message.includes('429') || message.includes('rate limit') || message.includes('quota') || message.includes('RESOURCE_EXHAUSTED')) {
     return 429;
   }
   
@@ -100,16 +125,38 @@ export async function POST(req: Request) {
     const status = getErrorStatus(err);
     const msg = err instanceof Error ? err.message : String(err);
     
+    // Try to extract the actual error message from Gemini API response
+    const geminiErrorMsg = parseGeminiErrorMessage(err);
+    
     // Log the full error for debugging
     console.error('Gemini API error details:', {
       status,
       message: msg,
+      parsedMessage: geminiErrorMsg,
       error: err,
       errorType: err?.constructor?.name,
     });
     
     if (status === 429) {
-      // Extract retry-after information if available
+      // Check if it's a quota/billing issue vs rate limit
+      const isQuotaExceeded = 
+        msg.includes('quota') || 
+        msg.includes('billing') || 
+        msg.includes('RESOURCE_EXHAUSTED') ||
+        (geminiErrorMsg && (geminiErrorMsg.includes('quota') || geminiErrorMsg.includes('billing')));
+      
+      if (isQuotaExceeded) {
+        // Quota exceeded - this requires billing/plan changes
+        return NextResponse.json(
+          { 
+            error: geminiErrorMsg || 'API quota exceeded. Please check your Gemini API plan and billing details. Visit https://ai.google.dev/gemini-api/docs/rate-limits for more information.',
+            quotaExceeded: true,
+          },
+          { status: 429 }
+        );
+      }
+      
+      // Regular rate limit - extract retry-after information if available
       const retryAfter = 
         (err as { retryAfter?: number; details?: { retryAfter?: number } })?.retryAfter ||
         (err as { details?: { retryAfter?: number } })?.details?.retryAfter ||
@@ -117,7 +164,7 @@ export async function POST(req: Request) {
       
       return NextResponse.json(
         { 
-          error: `Rate limit reached. Please wait ${retryAfter} seconds before trying again.`,
+          error: geminiErrorMsg || `Rate limit reached. Please wait ${retryAfter} seconds before trying again.`,
           retryAfter,
         },
         { 
