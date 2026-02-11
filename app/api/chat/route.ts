@@ -69,9 +69,10 @@ export async function POST(req: Request) {
 
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: 'gemini-2.0-flash-lite',
+      model: 'gemini-3-flash-preview',
       config: {
         systemInstruction,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
       },
       contents: limited,
     });
