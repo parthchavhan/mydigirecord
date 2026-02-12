@@ -14,8 +14,17 @@ export default function ThingsAIPage() {
     setError(null);
     setJoke('');
 
+    // Create AbortController for timeout (9 seconds for Hobby plan)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 9000); // 9 seconds timeout
+
     try {
-      const response = await fetch('/api/joke');
+      const response = await fetch('/api/joke', {
+        signal: controller.signal,
+      });
+      
+      clearTimeout(timeoutId);
+      
       const data = await response.json();
 
       if (!response.ok) {
@@ -24,8 +33,14 @@ export default function ThingsAIPage() {
 
       setJoke(data.joke || 'No joke received');
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
-      setError(errorMessage);
+      clearTimeout(timeoutId);
+      
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('Request timed out. Please try again.');
+      } else {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
+        setError(errorMessage);
+      }
       console.error('Error fetching joke:', err);
     } finally {
       setLoading(false);
@@ -58,6 +73,11 @@ export default function ThingsAIPage() {
               {error.includes('quota') && (
                 <p className="text-sm text-muted-foreground">
                   Your Gemini API quota has been exceeded. Please check your API key and billing settings.
+                </p>
+              )}
+              {error.includes('timeout') && (
+                <p className="text-sm text-muted-foreground">
+                  The request is taking too long. This might be due to high API load. Please try again in a moment.
                 </p>
               )}
             </div>

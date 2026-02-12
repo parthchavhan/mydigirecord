@@ -3,7 +3,9 @@ import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
-export const maxDuration = 30;
+// Vercel timeout limits: Hobby (10s), Pro (60s), Enterprise (300s)
+// Set to 10 for Hobby plan
+export const maxDuration = 10;
 
 const SYSTEM =
   'You are the Mendora Box AI. You generate notices, announcements, emails, and formal documents for principals, HODs, deans, and teachers.\n\n' +
@@ -98,8 +100,9 @@ export async function POST(req: Request) {
         ? `\n\nSuggested name (use if user doesn't say otherwise): ${suggested}.`
         : '');
 
-    const MAX_MESSAGES = 10;
-    const MAX_PART_CHARS = 800;
+    // Reduce message history for Hobby plan (10s timeout) - keep only last 5 messages
+    const MAX_MESSAGES = 5; // Reduced from 10 for faster processing
+    const MAX_PART_CHARS = 400; // Reduced from 800 for faster processing
     const limited = messages
       .slice(-MAX_MESSAGES)
       .map((m) => ({
@@ -109,15 +112,24 @@ export async function POST(req: Request) {
         })),
       }));
 
+    // Create a timeout promise (8 seconds to leave buffer for Vercel Hobby 10s limit)
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Request timeout after 8 seconds')), 8000);
+    });
+
     const ai = new GoogleGenAI({ apiKey });
-    const response = await ai.models.generateContent({
+    const apiCallPromise = ai.models.generateContent({
       model: 'gemini-3-flash-preview',
       contents: limited,
       config: {
         systemInstruction,
         thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        maxOutputTokens: 500, // Limit output for faster response
       },
     });
+
+    // Race between API call and timeout
+    const response = await Promise.race([apiCallPromise, timeoutPromise]);
 
     const text = response.text ?? '';
     return NextResponse.json({ text });
@@ -190,6 +202,18 @@ export async function POST(req: Request) {
         { status: 503 }
       );
     }
+    
+    // Handle timeout errors specifically
+    if (msg.includes('timeout') || msg.includes('Timeout')) {
+      return NextResponse.json(
+        { 
+          error: 'Request timed out. The API is taking too long to respond. Please try with a shorter message or try again.',
+          timeout: true,
+        },
+        { status: 504 }
+      );
+    }
+    
     console.error('Chat API error:', status, msg, err);
     return NextResponse.json(
       { error: 'Something went wrong. Please try again.' },
